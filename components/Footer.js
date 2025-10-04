@@ -6,13 +6,13 @@ const Footer = () => {
   return (
     <footer className="bg-gradient-to-br from-gray-900 to-blue-900 text-white">
       {/* CTA Section */}
-      <div className="border-b border-white/10">
+      <div className="border-b border-white/10" style={{ backgroundColor: '#fbf7eb' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="text-center">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900">
               Let's Shape Your Future
             </h2>
-            <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
+            <p className="text-xl text-gray-700 mb-8 max-w-2xl mx-auto">
               Falcon Global Consulting – where talent meets opportunity worldwide.
             </p>
             <button className="bg-gradient-to-r from-red-600 to-red-700 text-white px-8 py-4 rounded-full font-semibold text-lg hover:from-red-700 hover:to-red-800 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1">
@@ -31,7 +31,7 @@ const Footer = () => {
               <img
                 src="/klaus_logo.jpeg"
                 alt="Falcon Global Consulting"
-                className="h-16 w-auto object-contain brightness-0 invert"
+                className="h-16 w-auto object-contain filter invert"
               />
             </div>
             <p className="text-gray-300 leading-relaxed">
@@ -99,7 +99,7 @@ const Footer = () => {
               <div className="flex items-start space-x-3">
                 <MapPin className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                 <p className="text-gray-300 text-sm">
-                  Based in UAE, operating worldwide
+                  Based in Panama, operating worldwide
                 </p>
               </div>
               <div className="flex items-center space-x-3">
@@ -110,8 +110,8 @@ const Footer = () => {
               </div>
               <div className="flex items-center space-x-3">
                 <Mail className="w-5 h-5 text-red-500 flex-shrink-0" />
-                <a href="mailto:contact@falconglobal.com" className="text-gray-300 hover:text-white transition-colors duration-300 text-sm">
-                  contact@falconglobal.com
+                <a href="mailto:info@falconglobal.com" className="text-gray-300 hover:text-white transition-colors duration-300 text-sm">
+                  info@falconglobal.com
                 </a>
               </div>
             </div>

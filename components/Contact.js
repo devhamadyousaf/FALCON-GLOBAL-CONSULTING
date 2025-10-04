@@ -63,7 +63,7 @@ const Contact = () => {
                 {
                   icon: MapPin,
                   title: 'Location',
-                  details: 'Based in UAE, operating worldwide.',
+                  details: 'Based in Panama, operating worldwide.',
                   gradient: 'from-blue-500 to-indigo-600'
                 },
                 {

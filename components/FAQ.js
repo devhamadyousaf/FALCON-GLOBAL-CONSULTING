@@ -15,7 +15,7 @@ const FAQ = () => {
     },
     {
       question: 'Is Falcon Global Consulting limited to certain countries?',
-      answer: 'Not at all. While we are headquartered in the UAE, we operate globally with a remote-first approach. Our network spans across multiple continents, allowing us to serve clients and place talent in various countries worldwide.'
+      answer: 'Not at all. While we are headquartered in Panama, we operate globally with a remote-first approach. Our network spans across multiple continents, allowing us to serve clients and place talent in various countries worldwide.'
     },
     {
       question: 'How do you ensure compliance with local laws?',

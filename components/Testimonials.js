@@ -6,7 +6,7 @@ const Testimonials = () => {
       name: 'Ananya Sharma',
       title: 'Relocated Professional',
       company: 'Tech Consultant',
-      image: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&dpr=1&fit=crop&crop=face',
+      image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=150&q=80',
       rating: 5,
       text: 'Falcon Global Consulting made my move abroad stress-free. Their team handled everything from documentation to settling in. The level of support and attention to detail was exceptional.',
       gradient: 'from-blue-500 to-indigo-600'
@@ -15,7 +15,7 @@ const Testimonials = () => {
       name: 'James Mitchell',
       title: 'HR Director',
       company: 'Global Solutions Inc.',
-      image: 'https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&dpr=1&fit=crop&crop=face',
+      image: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=150&h=150&q=80',
       rating: 5,
       text: 'We found the right talent in record time thanks to Falcon\'s recruitment services. Professional, reliable, and efficient. They understand our business needs perfectly.',
       gradient: 'from-red-500 to-pink-600'
@@ -24,7 +24,7 @@ const Testimonials = () => {
       name: 'Maria Rodriguez',
       title: 'Business Owner',
       company: 'InnovateCorp',
-      image: 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&dpr=1&fit=crop&crop=face',
+      image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=150&h=150&q=80',
       rating: 5,
       text: 'Their business consulting services helped us expand into three new markets successfully. The strategic insights and practical support were invaluable for our growth.',
       gradient: 'from-green-500 to-emerald-600'
@@ -32,14 +32,14 @@ const Testimonials = () => {
   ];
 
   return (
-    <section className="py-24 bg-gradient-to-br from-gray-50 to-blue-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
+    <section className="py-12 md:py-16 lg:py-20 bg-gradient-to-br from-gray-50 to-blue-50">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-8 md:mb-12">
+          <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
             What Our Clients Say
           </h2>
-          <div className="w-20 h-1 bg-gradient-to-r from-blue-600 to-red-600 mx-auto rounded-full mb-8" />
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+          <div className="w-16 h-1 bg-gradient-to-r from-blue-600 to-red-600 mx-auto rounded-full mb-6" />
+          <p className="text-base md:text-lg text-gray-600 max-w-2xl mx-auto">
             Success stories from professionals and businesses who trusted us with their global journey
           </p>
         </div>
