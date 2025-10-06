@@ -99,19 +99,19 @@ const Footer = () => {
               <div className="flex items-start space-x-3">
                 <MapPin className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                 <p className="text-gray-300 text-sm">
-                  Based in Panama, operating worldwide
+                  Headquartered in Panama. Offices in Germany, Portugal, Colombia
                 </p>
               </div>
               <div className="flex items-center space-x-3">
                 <Phone className="w-5 h-5 text-red-500 flex-shrink-0" />
-                <a href="tel:+971354657985" className="text-gray-300 hover:text-white transition-colors duration-300 text-sm">
-                  +971 354 657 985
+                <a href="tel:+573002764532" className="text-gray-300 hover:text-white transition-colors duration-300 text-sm">
+                  +57 300 2764532
                 </a>
               </div>
               <div className="flex items-center space-x-3">
                 <Mail className="w-5 h-5 text-red-500 flex-shrink-0" />
-                <a href="mailto:info@falconglobal.com" className="text-gray-300 hover:text-white transition-colors duration-300 text-sm">
-                  info@falconglobal.com
+                <a href="mailto:info@falconglobalconsulting.com" className="text-gray-300 hover:text-white transition-colors duration-300 text-sm">
+                  info@falconglobalconsulting.com
                 </a>
               </div>
             </div>

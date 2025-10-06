@@ -63,19 +63,19 @@ const Contact = () => {
                 {
                   icon: MapPin,
                   title: 'Location',
-                  details: 'Based in Panama, operating worldwide.',
+                  details: 'Headquartered in Panama. Offices in Germany, Portugal, Colombia',
                   gradient: 'from-blue-500 to-indigo-600'
                 },
                 {
                   icon: Mail,
                   title: 'Email us',
-                  details: 'contact@falconglobal.com',
+                  details: 'info@falconglobalconsulting.com',
                   gradient: 'from-red-500 to-pink-600'
                 },
                 {
                   icon: Phone,
                   title: 'Call us',
-                  details: '+971 354 657 985',
+                  details: '+57 300 2764532',
                   gradient: 'from-green-500 to-emerald-600'
                 }
               ].map((contact, index) => (

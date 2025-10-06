@@ -26,21 +26,31 @@ const About = () => {
               </p>
             </div>
 
-            {/* Key Features */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
+            {/* Key Features with Dunes Background */}
+            <div
+              className="relative grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 p-6 md:p-8 rounded-2xl overflow-hidden"
+              style={{
+                backgroundImage: `
+                  linear-gradient(rgba(173, 216, 230, 0.85), rgba(173, 216, 230, 0.85)),
+                  url('https://images.unsplash.com/photo-1473580044384-7ba9967e16a0?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80')
+                `,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center'
+              }}
+            >
               {[
                 { icon: Target, title: 'Precision-Driven', desc: 'Tailored solutions for every client' },
                 { icon: Users, title: 'People-First', desc: 'Building lasting relationships' },
                 { icon: Globe2, title: 'Global Reach', desc: 'Operating across continents' },
                 { icon: Award, title: 'Trusted Expertise', desc: 'Years of proven success' }
               ].map((feature, index) => (
-                <div key={index} className="flex items-start space-x-3 md:space-x-4 p-3 md:p-4 rounded-xl md:rounded-2xl transition-colors duration-300 group" style={{ backgroundColor: '#fbf7eb' }}>
-                  <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-lg md:rounded-xl flex items-center justify-center group-hover:from-blue-200 group-hover:to-indigo-200 transition-all duration-300">
-                    <feature.icon className="w-5 h-5 md:w-6 md:h-6 text-blue-600" />
+                <div key={index} className="flex items-start space-x-3 md:space-x-4 p-3 md:p-4 rounded-xl md:rounded-2xl transition-all duration-300 group backdrop-blur-sm" style={{ backgroundColor: 'rgba(255, 255, 255, 0.6)' }}>
+                  <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg md:rounded-xl flex items-center justify-center transition-all duration-300" style={{ backgroundColor: 'rgba(0, 50, 83, 1)' }}>
+                    <feature.icon className="w-5 h-5 md:w-6 md:h-6 text-white" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-gray-900 mb-1 text-sm md:text-base">{feature.title}</h3>
-                    <p className="text-gray-600 text-xs md:text-sm">{feature.desc}</p>
+                    <h3 className="font-semibold mb-1 text-sm md:text-base" style={{ color: 'rgba(0, 50, 83, 1)' }}>{feature.title}</h3>
+                    <p className="text-gray-700 text-xs md:text-sm">{feature.desc}</p>
                   </div>
                 </div>
               ))}

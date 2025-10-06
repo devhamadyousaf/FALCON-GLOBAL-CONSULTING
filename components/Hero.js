@@ -2,8 +2,8 @@ import { ArrowRight, Play, Users, Globe, Award } from 'lucide-react';
 
 const Hero = () => {
   return (
-    <section 
-      id="home" 
+    <section
+      id="home"
       className="min-h-screen relative overflow-hidden pt-24"
       style={{
         backgroundImage: `
@@ -15,7 +15,19 @@ const Hero = () => {
         backgroundRepeat: 'no-repeat'
       }}
     >
-
+      {/* Top Banner */}
+      <div
+        className="relative z-10 text-center py-3 backdrop-blur-md border-b"
+        style={{
+          backgroundColor: 'rgba(0, 50, 83, 0.7)',
+          borderColor: 'rgba(255, 255, 255, 0.2)',
+          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+        }}
+      >
+        <p className="text-white font-semibold text-sm md:text-base">
+          🌟 Immediate Job Vacancies and Franchise Program Available Now!
+        </p>
+      </div>
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-20">
         <div className="text-center">

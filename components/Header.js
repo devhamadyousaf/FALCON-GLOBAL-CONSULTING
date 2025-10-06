@@ -21,9 +21,9 @@ const Header = () => {
     <header className="fixed w-full z-50 pt-4">
       
       {/* Pill-shaped Navbar Container */}
-      <div className="max-w-4xl mx-auto px-4">
-        <div 
-          className="backdrop-blur-lg px-4 py-2 transition-all duration-300"
+      <div className="max-w-6xl mx-auto px-4">
+        <div
+          className="backdrop-blur-lg px-6 py-2 transition-all duration-300"
           style={{
             backgroundColor: '#fbf7eb',
             border: '2px solid rgba(187, 40, 44, 0.8)',
@@ -34,21 +34,28 @@ const Header = () => {
         >
           <div className="flex items-center justify-between h-full">
             {/* Logo - Left Aligned */}
-            <div className="flex items-center space-x-2 flex-shrink-0 overflow-hidden h-full">
+            <div className="flex items-center space-x-3 flex-shrink-0 overflow-hidden h-full">
               <img
                 src="/klaus_logo.jpeg"
                 alt="Falcon Global Consulting"
                 className="h-20 w-auto object-contain"
               />
+              <div
+                className="font-bold text-xs md:text-sm leading-tight"
+                style={{ color: 'rgba(0, 50, 83, 1)' }}
+              >
+                <div>Falcon Global</div>
+                <div>Consulting Corp</div>
+              </div>
             </div>
 
             {/* Desktop Navigation - Center Aligned */}
-            <nav className="hidden lg:flex items-center justify-center flex-1 mx-6">
-              <div className="flex items-center space-x-8">
-                {['Home', 'About', 'Services', 'Pricing', 'Contact'].map((item) => (
+            <nav className="hidden lg:flex items-center justify-center flex-1 mx-4">
+              <div className="flex items-center space-x-6">
+                {['Home', 'About', 'Services', 'Pricing', 'Career', 'Contact'].map((item) => (
                   <a
                     key={item}
-                    href={`#${item.toLowerCase()}`}
+                    href={item === 'Career' ? '/career' : `#${item.toLowerCase()}`}
                     className="font-bold text-base transition-colors duration-200 relative group"
                     style={{ color: 'rgba(0, 50, 83, 1)' }}
                     onMouseEnter={(e) => e.target.style.color = 'rgba(187, 40, 44, 1)'}
@@ -181,10 +188,10 @@ const Header = () => {
               boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
             }}
           >
-            {['Home', 'About', 'Services', 'Pricing', 'Contact'].map((item) => (
+            {['Home', 'About', 'Services', 'Pricing', 'Career', 'Contact'].map((item) => (
               <a
                 key={item}
-                href={`#${item.toLowerCase()}`}
+                href={item === 'Career' ? '/career' : `#${item.toLowerCase()}`}
                 className="block font-bold text-base py-2 transition-colors duration-200 text-center"
                 style={{ color: 'rgba(0, 50, 83, 1)' }}
                 onMouseEnter={(e) => e.target.style.color = 'rgba(187, 40, 44, 1)'}
