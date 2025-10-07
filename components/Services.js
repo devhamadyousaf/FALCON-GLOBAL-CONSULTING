@@ -3,13 +3,6 @@ import { Plane, Users, Building, FileText, ArrowRight } from 'lucide-react';
 const Services = () => {
   const services = [
     {
-      icon: Plane,
-      title: 'Relocation & Mobility Support',
-      description: 'Smooth transitions for individuals and organizations moving across borders.',
-      features: ['Visa assistance', 'Housing solutions', 'Cultural orientation', 'Legal compliance'],
-      gradient: 'from-blue-500 to-cyan-500'
-    },
-    {
       icon: Users,
       title: 'Global Recruitment Solutions',
       description: 'Connecting top talent with companies worldwide.',
@@ -29,11 +22,18 @@ const Services = () => {
       description: 'Hassle-free assistance with legal and professional requirements.',
       features: ['Documentation', 'Legal compliance', 'Certification', 'Quality assurance'],
       gradient: 'from-green-500 to-emerald-500'
+    },
+    {
+      icon: Plane,
+      title: 'Relocation & Mobility Support',
+      description: 'Smooth transitions for individuals and organizations moving across borders.',
+      features: ['Visa assistance', 'Housing solutions', 'Cultural orientation', 'Legal compliance'],
+      gradient: 'from-blue-500 to-cyan-500'
     }
   ];
 
   return (
-    <section id="services" className="py-12 md:py-16 lg:py-20" style={{ background: `linear-gradient(to bottom right, #fbf7eb, #f0f9ff)` }}>
+    <section id="services" className="py-12 md:py-16 lg:py-20 desert-sand-bg-subtle">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-8 md:mb-12">
           <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 mb-4">

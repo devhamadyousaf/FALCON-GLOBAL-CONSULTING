@@ -15,44 +15,37 @@ const Hero = () => {
         backgroundRepeat: 'no-repeat'
       }}
     >
-      {/* Top Banner */}
-      <div
-        className="relative z-10 text-center py-3 backdrop-blur-md border-b"
-        style={{
-          backgroundColor: 'rgba(0, 50, 83, 0.7)',
-          borderColor: 'rgba(255, 255, 255, 0.2)',
-          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
-        }}
-      >
-        <p className="text-white font-semibold text-sm md:text-base">
-          🌟 Immediate Job Vacancies and Franchise Program Available Now!
-        </p>
-      </div>
-
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-20">
         <div className="text-center">
           {/* Main Heading */}
           <div className="mb-6 md:mb-8">
             <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold leading-tight mb-4 md:mb-6">
-              <span className="text-white">
+              <span
+                className="px-4 md:px-6 py-2 rounded-lg inline-block"
+                style={{
+                  backgroundColor: 'rgba(187, 40, 44, 1)',
+                  color: 'rgba(0, 50, 83, 1)'
+                }}
+              >
                 FALCON GLOBAL
               </span>
               <br />
-              <span 
-                className="text-white px-4 md:px-6 py-2 rounded-lg inline-block text-2xl md:text-3xl lg:text-5xl"
-                style={{ 
+              <span
+                className="px-4 md:px-6 py-2 rounded-lg inline-block text-2xl md:text-3xl lg:text-5xl"
+                style={{
                   backgroundColor: 'rgba(187, 40, 44, 1)',
+                  color: 'rgba(0, 50, 83, 1)',
                   marginTop: '0.5rem'
                 }}
               >
-                CONSULTING
+                CONSULTING CORP
               </span>
             </h1>
           </div>
 
           {/* Subtitle */}
           <h2 className="text-lg md:text-xl lg:text-2xl font-semibold text-white mb-4 md:mb-6">
-            Your Gateway to Global Opportunities
+            The sharpest eye for talent
           </h2>
 
           {/* Description */}
@@ -77,17 +70,17 @@ const Hero = () => {
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-300" />
             </button>
             <button className="group flex items-center space-x-2 font-semibold text-base md:text-lg transition-colors duration-300"
-                    style={{ color: 'rgba(187, 40, 44, 1)' }}
-                    onMouseEnter={(e) => e.target.style.color = 'rgba(187, 40, 44, 0.8)'}
-                    onMouseLeave={(e) => e.target.style.color = 'rgba(187, 40, 44, 1)'}>
+                    style={{ color: 'white' }}
+                    onMouseEnter={(e) => e.target.style.color = 'rgba(255, 255, 255, 0.8)'}
+                    onMouseLeave={(e) => e.target.style.color = 'white'}>
               <div className="w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300"
-                   style={{ 
+                   style={{
                      backgroundColor: 'rgba(251, 247, 235, 0.8)',
                      backdropFilter: 'blur(4px)'
                    }}>
                 <Play className="w-4 h-4 md:w-5 md:h-5 ml-1" />
               </div>
-              <span style={{ color: 'white' }}>Watch Our Story</span>
+              <span>Watch Our Story</span>
             </button>
           </div>
 
@@ -100,7 +93,7 @@ const Hero = () => {
             ].map((stat, index) => (
               <div key={index} className="text-center group">
                 <div className="w-12 h-12 md:w-16 md:h-16 mx-auto mb-3 md:mb-4 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-xl md:rounded-2xl flex items-center justify-center group-hover:from-blue-200 group-hover:to-indigo-200 transition-all duration-300">
-                  <stat.icon className="w-6 h-6 md:w-8 md:h-8 text-blue-600" />
+                  <stat.icon className="w-6 h-6 md:w-8 md:h-8" style={{ color: 'rgba(0, 50, 83, 1)' }} />
                 </div>
                 <div className="text-2xl md:text-3xl font-bold text-white mb-2">{stat.number}</div>
                 <div className="text-sm md:text-base text-white font-medium">{stat.label}</div>

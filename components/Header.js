@@ -40,30 +40,32 @@ const Header = () => {
                 alt="Falcon Global Consulting"
                 className="h-20 w-auto object-contain"
               />
-              <div
-                className="font-bold text-xs md:text-sm leading-tight"
-                style={{ color: 'rgba(0, 50, 83, 1)' }}
-              >
-                <div>Falcon Global</div>
-                <div>Consulting Corp</div>
-              </div>
             </div>
 
             {/* Desktop Navigation - Center Aligned */}
             <nav className="hidden lg:flex items-center justify-center flex-1 mx-4">
               <div className="flex items-center space-x-6">
-                {['Home', 'About', 'Services', 'Pricing', 'Career', 'Contact'].map((item) => (
-                  <a
-                    key={item}
-                    href={item === 'Career' ? '/career' : `#${item.toLowerCase()}`}
-                    className="font-bold text-base transition-colors duration-200 relative group"
-                    style={{ color: 'rgba(0, 50, 83, 1)' }}
-                    onMouseEnter={(e) => e.target.style.color = 'rgba(187, 40, 44, 1)'}
-                    onMouseLeave={(e) => e.target.style.color = 'rgba(0, 50, 83, 1)'}
-                  >
-                    {item}
-                  </a>
-                ))}
+                {['Home', 'About', 'Services', 'Pricing', 'Franchise Program', 'Job Vacancies', 'Contact'].map((item) => {
+                  const getHref = () => {
+                    if (typeof window !== 'undefined' && window.location.pathname !== '/') {
+                      return `/#${item.toLowerCase()}`;
+                    }
+                    return `#${item.toLowerCase()}`;
+                  };
+
+                  return (
+                    <a
+                      key={item}
+                      href={getHref()}
+                      className="font-bold text-base transition-colors duration-200 relative group"
+                      style={{ color: 'rgba(0, 50, 83, 1)' }}
+                      onMouseEnter={(e) => e.target.style.color = 'rgba(187, 40, 44, 1)'}
+                      onMouseLeave={(e) => e.target.style.color = 'rgba(0, 50, 83, 1)'}
+                    >
+                      {item}
+                    </a>
+                  );
+                })}
               </div>
             </nav>
 
@@ -188,19 +190,28 @@ const Header = () => {
               boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
             }}
           >
-            {['Home', 'About', 'Services', 'Pricing', 'Career', 'Contact'].map((item) => (
-              <a
-                key={item}
-                href={item === 'Career' ? '/career' : `#${item.toLowerCase()}`}
-                className="block font-bold text-base py-2 transition-colors duration-200 text-center"
-                style={{ color: 'rgba(0, 50, 83, 1)' }}
-                onMouseEnter={(e) => e.target.style.color = 'rgba(187, 40, 44, 1)'}
-                onMouseLeave={(e) => e.target.style.color = 'rgba(0, 50, 83, 1)'}
-                onClick={() => setIsMenuOpen(false)}
-              >
-                {item}
-              </a>
-            ))}
+            {['Home', 'About', 'Services', 'Pricing', 'Franchise Program', 'Job Vacancies', 'Contact'].map((item) => {
+              const getHref = () => {
+                if (typeof window !== 'undefined' && window.location.pathname !== '/') {
+                  return `/#${item.toLowerCase()}`;
+                }
+                return `#${item.toLowerCase()}`;
+              };
+
+              return (
+                <a
+                  key={item}
+                  href={getHref()}
+                  className="block font-bold text-base py-2 transition-colors duration-200 text-center"
+                  style={{ color: 'rgba(0, 50, 83, 1)' }}
+                  onMouseEnter={(e) => e.target.style.color = 'rgba(187, 40, 44, 1)'}
+                  onMouseLeave={(e) => e.target.style.color = 'rgba(0, 50, 83, 1)'}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  {item}
+                </a>
+              );
+            })}
             <div className="pt-3 space-y-2">
               {isAuthenticated ? (
                 <>

@@ -4,6 +4,8 @@ import About from '../components/About';
 import Services from '../components/Services';
 import Process from '../components/Process';
 import Pricing from '../components/Pricing';
+import Franchise from '../components/Franchise';
+import JobVacancies from '../components/JobVacancies';
 import FAQ from '../components/FAQ';
 import Testimonials from '../components/Testimonials';
 import Contact from '../components/Contact';
@@ -18,6 +20,8 @@ export default function Home() {
       <Services />
       <Process />
       <Pricing />
+      <Franchise />
+      <JobVacancies />
       <FAQ />
       <Testimonials />
       <Contact />

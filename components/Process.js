@@ -33,7 +33,7 @@ const Process = () => {
   ];
 
   return (
-    <section id="process" className="py-12 md:py-16 lg:py-20 bg-white">
+    <section id="process" className="py-12 md:py-16 lg:py-20 desert-sand-bg-subtle">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-8 md:mb-12">
           <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
@@ -54,32 +54,44 @@ const Process = () => {
             {steps.map((step, index) => (
               <div key={index} className="relative group">
                 {/* Step Card */}
-                <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 relative z-10">
+                <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 relative z-10"
+                     onMouseEnter={(e) => {
+                       const icon = e.currentTarget.querySelector('.step-icon');
+                       const title = e.currentTarget.querySelector('.step-title');
+                       if (icon) icon.style.color = 'rgba(0, 50, 83, 1)';
+                       if (title) title.style.color = 'rgba(0, 50, 83, 1)';
+                     }}
+                     onMouseLeave={(e) => {
+                       const icon = e.currentTarget.querySelector('.step-icon');
+                       const title = e.currentTarget.querySelector('.step-title');
+                       if (icon) icon.style.color = '';
+                       if (title) title.style.color = '';
+                     }}>
+                  {/* Hover Gradient */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-indigo-50 opacity-0 group-hover:opacity-100 rounded-2xl transition-opacity duration-300 -z-10" />
+
                   {/* Step Number */}
                   <div className="absolute -top-3 left-6 w-6 h-6 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-full flex items-center justify-center font-bold text-xs">
                     {step.number}
                   </div>
 
                   {/* Icon */}
-                  <div className="w-12 h-12 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl flex items-center justify-center mb-4 group-hover:from-blue-100 group-hover:to-indigo-100 transition-all duration-300">
-                    <step.icon className="w-6 h-6 text-gray-600 group-hover:text-blue-600 transition-colors duration-300" />
+                  <div className="w-12 h-12 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl flex items-center justify-center mb-4 group-hover:from-blue-100 group-hover:to-indigo-100 transition-all duration-300 relative z-10">
+                    <step.icon className="step-icon w-6 h-6 text-gray-600 transition-colors duration-300" />
                   </div>
 
                   {/* Content */}
-                  <h3 className="text-lg font-bold text-gray-900 mb-3 group-hover:text-blue-600 transition-colors duration-300">
+                  <h3 className="step-title text-lg font-bold text-gray-900 mb-3 transition-colors duration-300 relative z-10">
                     {step.title}
                   </h3>
 
-                  <p className="text-sm text-gray-600 mb-3 font-medium">
+                  <p className="text-sm text-gray-600 mb-3 font-medium relative z-10">
                     {step.description}
                   </p>
 
-                  <p className="text-xs text-gray-500 leading-relaxed">
+                  <p className="text-xs text-gray-500 leading-relaxed relative z-10">
                     {step.details}
                   </p>
-
-                  {/* Hover Gradient */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-indigo-50 opacity-0 group-hover:opacity-100 rounded-2xl transition-opacity duration-300" />
                 </div>
 
                 {/* Connection Dots for Mobile */}

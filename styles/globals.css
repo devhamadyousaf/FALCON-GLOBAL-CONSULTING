@@ -109,3 +109,53 @@ input:focus, textarea:focus, button:focus {
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+/* Desert sand background for sections */
+.desert-sand-bg {
+  background-image: url('/desert-sand-bg.jpg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  position: relative;
+}
+
+.desert-sand-bg::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.85);
+  z-index: 1;
+}
+
+.desert-sand-bg > * {
+  position: relative;
+  z-index: 2;
+}
+
+/* Alternative with subtle overlay */
+.desert-sand-bg-subtle {
+  background-image: url('/desert-sand-bg.jpg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  position: relative;
+}
+
+.desert-sand-bg-subtle::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(249, 250, 251, 0.6);
+  z-index: 1;
+}
+
+.desert-sand-bg-subtle > * {
+  position: relative;
+  z-index: 2;
+}
