@@ -31,7 +31,7 @@ const Footer = () => {
               <img
                 src="/klaus_logo.jpeg"
                 alt="Falcon Global Consulting"
-                className="h-16 w-auto object-contain filter invert"
+                className="h-16 w-auto object-contain"
               />
             </div>
             <p className="text-gray-300 leading-relaxed">
