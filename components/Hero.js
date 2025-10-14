@@ -17,36 +17,10 @@ const Hero = () => {
     >
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-20">
         <div className="text-center">
-          {/* Main Heading */}
-          <div className="mb-6 md:mb-8">
-            <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold leading-tight mb-4 md:mb-6">
-              <span
-                className="px-4 md:px-6 py-2 rounded-lg inline-block"
-                style={{
-                  backgroundColor: 'rgba(187, 40, 44, 1)',
-                  color: 'rgba(0, 50, 83, 1)'
-                }}
-              >
-                FALCON GLOBAL
-              </span>
-              <br />
-              <span
-                className="px-4 md:px-6 py-2 rounded-lg inline-block text-2xl md:text-3xl lg:text-5xl"
-                style={{
-                  backgroundColor: 'rgba(187, 40, 44, 1)',
-                  color: 'rgba(0, 50, 83, 1)',
-                  marginTop: '0.5rem'
-                }}
-              >
-                CONSULTING CORP
-              </span>
-            </h1>
-          </div>
-
-          {/* Subtitle */}
-          <h2 className="text-lg md:text-xl lg:text-2xl font-semibold text-white mb-4 md:mb-6">
+          {/* Subtitle/Slogan - Now Bigger */}
+          <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-8 md:mb-10 leading-tight">
             The sharpest eye for talent
-          </h2>
+          </h1>
 
           {/* Description */}
           <p className="text-base md:text-lg text-gray-200 max-w-2xl mx-auto leading-relaxed mb-8 md:mb-12">

@@ -19,17 +19,17 @@ const Header = () => {
 
   return (
     <header className="fixed w-full z-50 pt-4">
-      
-      {/* Pill-shaped Navbar Container */}
-      <div className="max-w-6xl mx-auto px-4">
+
+      {/* Full-width Navbar Container - Reduced height */}
+      <div className="w-full px-6">
         <div
-          className="backdrop-blur-lg px-6 py-2 transition-all duration-300"
+          className="backdrop-blur-lg px-8 py-3 transition-all duration-300"
           style={{
             backgroundColor: '#fbf7eb',
             border: '2px solid rgba(187, 40, 44, 0.8)',
             borderRadius: '50px',
             boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-            height: '70px'
+            height: '90px'
           }}
         >
           <div className="flex items-center justify-between h-full">
@@ -44,8 +44,8 @@ const Header = () => {
 
             {/* Desktop Navigation - Center Aligned */}
             <nav className="hidden lg:flex items-center justify-center flex-1 mx-4">
-              <div className="flex items-center space-x-6">
-                {['Home', 'About', 'Services', 'Pricing', 'Franchise Program', 'Job Vacancies', 'Contact'].map((item) => {
+              <div className="flex items-center space-x-8">
+                {['Home', 'About', 'Services', 'Pricing', 'FAQ', 'Franchise Program', 'Job Vacancies', 'Contact'].map((item) => {
                   const getHref = () => {
                     if (typeof window !== 'undefined' && window.location.pathname !== '/') {
                       return `/#${item.toLowerCase()}`;
@@ -57,7 +57,7 @@ const Header = () => {
                     <a
                       key={item}
                       href={getHref()}
-                      className="font-bold text-base transition-colors duration-200 relative group"
+                      className="font-bold text-lg transition-colors duration-200 relative group"
                       style={{ color: 'rgba(0, 50, 83, 1)' }}
                       onMouseEnter={(e) => e.target.style.color = 'rgba(187, 40, 44, 1)'}
                       onMouseLeave={(e) => e.target.style.color = 'rgba(0, 50, 83, 1)'}
@@ -180,7 +180,7 @@ const Header = () => {
 
       {/* Mobile Menu */}
       {isMenuOpen && (
-        <div className="lg:hidden mt-3 mx-4">
+        <div className="lg:hidden mt-3 mx-6">
           <div 
             className="backdrop-blur-lg px-4 py-3 space-y-3"
             style={{
@@ -190,7 +190,7 @@ const Header = () => {
               boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
             }}
           >
-            {['Home', 'About', 'Services', 'Pricing', 'Franchise Program', 'Job Vacancies', 'Contact'].map((item) => {
+            {['Home', 'About', 'Services', 'Pricing', 'FAQ', 'Franchise Program', 'Job Vacancies', 'Contact'].map((item) => {
               const getHref = () => {
                 if (typeof window !== 'undefined' && window.location.pathname !== '/') {
                   return `/#${item.toLowerCase()}`;

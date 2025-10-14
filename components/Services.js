@@ -36,10 +36,10 @@ const Services = () => {
     <section id="services" className="py-12 md:py-16 lg:py-20 desert-sand-bg-subtle">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-8 md:mb-12">
-          <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
+          <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-4" style={{ color: 'rgba(0, 50, 83, 1)' }}>
             Our Core Services
           </h2>
-          <div className="w-16 h-1 bg-gradient-to-r from-blue-600 to-red-600 mx-auto rounded-full mb-6" />
+          <div className="w-24 h-1.5 mx-auto rounded-full mb-6" style={{ backgroundColor: 'rgba(187, 40, 44, 1)' }} />
           <p className="text-base md:text-lg text-gray-600 max-w-2xl mx-auto">
             Comprehensive solutions designed to bridge global opportunities and simplify international success
           </p>
@@ -49,7 +49,8 @@ const Services = () => {
           {services.map((service, index) => (
             <div
               key={index}
-              className="group relative bg-white rounded-3xl p-8 shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 border border-gray-100"
+              className="group relative bg-white rounded-3xl p-8 shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 border border-gray-100 flex flex-col"
+              style={{ minHeight: '420px' }}
             >
               {/* Icon */}
               <div className={`w-16 h-16 bg-gradient-to-br ${service.gradient} rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}>
@@ -76,7 +77,9 @@ const Services = () => {
               </ul>
 
               {/* Learn More Button */}
-              <button className="group/btn flex items-center text-blue-600 hover:text-blue-700 font-semibold transition-colors duration-300">
+              <button className="group/btn flex items-center font-semibold transition-colors duration-300 mt-auto" style={{ color: 'rgba(0, 50, 83, 1)' }}
+                      onMouseEnter={(e) => e.currentTarget.style.color = 'rgba(0, 50, 83, 0.7)'}
+                      onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(0, 50, 83, 1)'}>
                 <span>Learn More</span>
                 <ArrowRight className="w-4 h-4 ml-2 group-hover/btn:translate-x-1 transition-transform duration-300" />
               </button>

@@ -89,11 +89,11 @@ const FAQ = () => {
 
         {/* Contact CTA */}
         <div className="text-center mt-12">
-          <p className="text-gray-600 mb-6">
+          <p className="text-2xl md:text-3xl font-bold text-gray-900 mb-6">
             Still have questions? We're here to help!
           </p>
           <button className="bg-gradient-to-r from-red-600 to-red-700 text-white px-8 py-4 rounded-full font-semibold hover:from-red-700 hover:to-red-800 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1">
-            Contact Our Experts
+            Book your personal call
           </button>
         </div>
       </div>

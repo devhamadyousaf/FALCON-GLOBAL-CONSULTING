@@ -75,7 +75,7 @@ const Contact = () => {
                 {
                   icon: Phone,
                   title: 'Call us',
-                  details: '+57 300 2764532',
+                  details: '+507 8388109',
                   gradient: 'from-green-500 to-emerald-600'
                 }
               ].map((contact, index) => (
@@ -97,15 +97,11 @@ const Contact = () => {
               <div className="space-y-2 text-sm text-gray-600">
                 <div className="flex justify-between">
                   <span>Monday - Friday</span>
-                  <span>9:00 AM - 6:00 PM (GST)</span>
+                  <span>7:00 AM - 6:00 PM</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Saturday</span>
-                  <span>10:00 AM - 2:00 PM (GST)</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Sunday</span>
-                  <span>Closed</span>
+                  <span>Saturday & Sunday</span>
+                  <span>On request</span>
                 </div>
               </div>
             </div>
