@@ -43,8 +43,8 @@ const Header = () => {
             </div>
 
             {/* Desktop Navigation - Center Aligned */}
-            <nav className="hidden lg:flex items-center justify-center flex-1 mx-4">
-              <div className="flex items-center space-x-8">
+            <nav className="hidden lg:flex items-center justify-center flex-1 mx-2">
+              <div className="flex items-center space-x-6">
                 {['Home', 'About', 'Services', 'Pricing', 'FAQ', 'Franchise Program', 'Job Vacancies', 'Contact'].map((item) => {
                   const getHref = () => {
                     if (typeof window !== 'undefined' && window.location.pathname !== '/') {
@@ -57,7 +57,7 @@ const Header = () => {
                     <a
                       key={item}
                       href={getHref()}
-                      className="font-bold text-lg transition-colors duration-200 relative group"
+                      className="font-bold text-base transition-colors duration-200 relative group whitespace-nowrap"
                       style={{ color: 'rgba(0, 50, 83, 1)' }}
                       onMouseEnter={(e) => e.target.style.color = 'rgba(187, 40, 44, 1)'}
                       onMouseLeave={(e) => e.target.style.color = 'rgba(0, 50, 83, 1)'}

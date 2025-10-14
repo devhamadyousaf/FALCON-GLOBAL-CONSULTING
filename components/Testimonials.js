@@ -107,7 +107,10 @@ const Testimonials = () => {
             { number: '5+', label: 'Years Experience' }
           ].map((stat, index) => (
             <div key={index} className="text-center">
-              <div className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-700 bg-clip-text text-transparent mb-2">
+              <div 
+                className="text-3xl md:text-4xl font-bold mb-2"
+                style={{ color: 'rgba(0, 50, 83, 1)' }}
+              >
                 {stat.number}
               </div>
               <div className="text-gray-600 font-medium">{stat.label}</div>
