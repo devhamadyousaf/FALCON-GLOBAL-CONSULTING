@@ -34,13 +34,13 @@ const Contact = () => {
     <section id="contact" className="py-24 desert-sand-bg-subtle">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <h2 
+          <h2
             className="text-4xl md:text-5xl font-bold mb-6"
             style={{ color: 'rgba(0, 50, 83, 1)' }}
           >
             Get in Touch
           </h2>
-          <div className="w-20 h-1 bg-gradient-to-r from-blue-600 to-red-600 mx-auto rounded-full mb-8" />
+          <div className="w-24 h-1.5 mx-auto rounded-full mb-8" style={{ backgroundColor: 'rgba(187, 40, 44, 1)' }} />
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             We're here to help you with recruitment, relocation, and consulting needs.
             Send us a message and we'll respond quickly with the support you need.
@@ -92,21 +92,6 @@ const Contact = () => {
                   </div>
                 </div>
               ))}
-            </div>
-
-            {/* Office Hours */}
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-100">
-              <h4 className="font-semibold text-gray-900 mb-3">Office Hours</h4>
-              <div className="space-y-2 text-sm text-gray-600">
-                <div className="flex justify-between">
-                  <span>Monday - Friday</span>
-                  <span>7:00 AM - 6:00 PM</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Saturday & Sunday</span>
-                  <span>On request</span>
-                </div>
-              </div>
             </div>
           </div>
 

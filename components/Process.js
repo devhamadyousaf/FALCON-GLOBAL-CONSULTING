@@ -7,28 +7,32 @@ const Process = () => {
       icon: MessageCircle,
       title: 'Understanding Needs',
       description: 'We start with a personalized consultation.',
-      details: 'Deep dive into your requirements, goals, and challenges to create the perfect strategy.'
+      details: 'Deep dive into your requirements, goals, and challenges to create the perfect strategy.',
+      gradient: 'from-indigo-500 to-purple-500'
     },
     {
       number: '2',
       icon: Settings,
       title: 'Tailored Solutions',
       description: 'We design strategies and services to match your goals.',
-      details: 'Custom-built solutions that align with your unique objectives and market conditions.'
+      details: 'Custom-built solutions that align with your unique objectives and market conditions.',
+      gradient: 'from-red-500 to-pink-500'
     },
     {
       number: '3',
       icon: Rocket,
       title: 'Execution & Support',
       description: 'From recruitment to relocation, we handle the details.',
-      details: 'Seamless implementation with continuous monitoring and real-time adjustments.'
+      details: 'Seamless implementation with continuous monitoring and real-time adjustments.',
+      gradient: 'from-green-500 to-emerald-500'
     },
     {
       number: '4',
       icon: Handshake,
       title: 'Ongoing Partnership',
       description: 'We continue to support your growth every step of the way.',
-      details: 'Long-term relationship building with continuous optimization and support.'
+      details: 'Long-term relationship building with continuous optimization and support.',
+      gradient: 'from-blue-500 to-cyan-500'
     }
   ];
 
@@ -53,44 +57,27 @@ const Process = () => {
               <>
                 <div key={index} className="relative group flex-shrink-0" style={{ width: '220px' }}>
                   {/* Step Card */}
-                  <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 relative z-10 h-full"
-                       onMouseEnter={(e) => {
-                         const icon = e.currentTarget.querySelector('.step-icon');
-                         const title = e.currentTarget.querySelector('.step-title');
-                         if (icon) icon.style.color = 'rgba(0, 50, 83, 1)';
-                         if (title) title.style.color = 'rgba(0, 50, 83, 1)';
-                       }}
-                       onMouseLeave={(e) => {
-                         const icon = e.currentTarget.querySelector('.step-icon');
-                         const title = e.currentTarget.querySelector('.step-title');
-                         if (icon) icon.style.color = '';
-                         if (title) title.style.color = '';
-                       }}>
-                    {/* Hover Gradient */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-indigo-50 opacity-0 group-hover:opacity-100 rounded-2xl transition-opacity duration-300 -z-10" />
-
-                    {/* Step Number */}
-                    <div className="absolute -top-3 left-6 w-6 h-6 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-full flex items-center justify-center font-bold text-xs">
-                      {step.number}
-                    </div>
-
+                  <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 relative z-10 h-full flex flex-col">
                     {/* Icon */}
-                    <div className="w-12 h-12 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl flex items-center justify-center mb-4 group-hover:from-blue-100 group-hover:to-indigo-100 transition-all duration-300 relative z-10">
-                      <step.icon className="step-icon w-6 h-6 text-gray-600 transition-colors duration-300" />
+                    <div className={`w-12 h-12 bg-gradient-to-br ${step.gradient} rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
+                      <step.icon className="w-6 h-6 text-white" />
                     </div>
 
                     {/* Content */}
-                    <h3 className="step-title text-base font-bold text-gray-900 mb-2 transition-colors duration-300 relative z-10">
+                    <h3 className="text-base font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors duration-300">
                       {step.title}
                     </h3>
 
-                    <p className="text-xs text-gray-600 mb-2 font-medium relative z-10">
+                    <p className="text-xs text-gray-600 mb-2 leading-relaxed">
                       {step.description}
                     </p>
 
-                    <p className="text-xs text-gray-500 leading-relaxed relative z-10">
+                    <p className="text-xs text-gray-500 leading-relaxed">
                       {step.details}
                     </p>
+
+                    {/* Hover Gradient Background */}
+                    <div className={`absolute inset-0 bg-gradient-to-br ${step.gradient} opacity-0 group-hover:opacity-5 rounded-3xl transition-opacity duration-500`} />
                   </div>
                 </div>
 
@@ -114,44 +101,27 @@ const Process = () => {
             {steps.map((step, index) => (
               <div key={index} className="relative group">
                 {/* Step Card */}
-                <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 relative z-10"
-                     onMouseEnter={(e) => {
-                       const icon = e.currentTarget.querySelector('.step-icon');
-                       const title = e.currentTarget.querySelector('.step-title');
-                       if (icon) icon.style.color = 'rgba(0, 50, 83, 1)';
-                       if (title) title.style.color = 'rgba(0, 50, 83, 1)';
-                     }}
-                     onMouseLeave={(e) => {
-                       const icon = e.currentTarget.querySelector('.step-icon');
-                       const title = e.currentTarget.querySelector('.step-title');
-                       if (icon) icon.style.color = '';
-                       if (title) title.style.color = '';
-                     }}>
-                  {/* Hover Gradient */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-indigo-50 opacity-0 group-hover:opacity-100 rounded-2xl transition-opacity duration-300 -z-10" />
-
-                  {/* Step Number */}
-                  <div className="absolute -top-3 left-6 w-6 h-6 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-full flex items-center justify-center font-bold text-xs">
-                    {step.number}
-                  </div>
-
+                <div className="bg-white rounded-3xl p-8 shadow-lg border border-gray-100 hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 flex flex-col">
                   {/* Icon */}
-                  <div className="w-12 h-12 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl flex items-center justify-center mb-4 group-hover:from-blue-100 group-hover:to-indigo-100 transition-all duration-300 relative z-10">
-                    <step.icon className="step-icon w-6 h-6 text-gray-600 transition-colors duration-300" />
+                  <div className={`w-16 h-16 bg-gradient-to-br ${step.gradient} rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}>
+                    <step.icon className="w-8 h-8 text-white" />
                   </div>
 
                   {/* Content */}
-                  <h3 className="step-title text-lg font-bold text-gray-900 mb-3 transition-colors duration-300 relative z-10">
+                  <h3 className="text-xl font-bold text-gray-900 mb-4 group-hover:text-blue-600 transition-colors duration-300">
                     {step.title}
                   </h3>
 
-                  <p className="text-sm text-gray-600 mb-3 font-medium relative z-10">
+                  <p className="text-gray-600 mb-6 leading-relaxed">
                     {step.description}
                   </p>
 
-                  <p className="text-xs text-gray-500 leading-relaxed relative z-10">
+                  <p className="text-sm text-gray-500 leading-relaxed">
                     {step.details}
                   </p>
+
+                  {/* Hover Gradient Background */}
+                  <div className={`absolute inset-0 bg-gradient-to-br ${step.gradient} opacity-0 group-hover:opacity-5 rounded-3xl transition-opacity duration-500`} />
                 </div>
               </div>
             ))}

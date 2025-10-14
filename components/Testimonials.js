@@ -35,13 +35,13 @@ const Testimonials = () => {
     <section className="py-12 md:py-16 lg:py-20 desert-sand-bg-subtle">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-8 md:mb-12">
-          <h2 
+          <h2
             className="text-2xl md:text-3xl lg:text-4xl font-bold mb-4"
             style={{ color: 'rgba(0, 50, 83, 1)' }}
           >
             What Our Clients Say
           </h2>
-          <div className="w-16 h-1 bg-gradient-to-r from-blue-600 to-red-600 mx-auto rounded-full mb-6" />
+          <div className="w-24 h-1.5 mx-auto rounded-full mb-6" style={{ backgroundColor: 'rgba(187, 40, 44, 1)' }} />
           <p className="text-base md:text-lg text-gray-600 max-w-2xl mx-auto">
             Success stories from professionals and businesses who trusted us with their global journey
           </p>

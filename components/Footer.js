@@ -9,7 +9,7 @@ const Footer = () => {
       <div className="border-b border-white/10" style={{ backgroundColor: '#fbf7eb' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="text-center">
-            <h2 
+            <h2
               className="text-3xl md:text-4xl font-bold mb-4"
               style={{ color: 'rgba(0, 50, 83, 1)' }}
             >
@@ -18,9 +18,6 @@ const Footer = () => {
             <p className="text-xl text-gray-700 mb-8 max-w-2xl mx-auto">
               Falcon Global Consulting – where talent meets opportunity worldwide.
             </p>
-            <button className="bg-gradient-to-r from-red-600 to-red-700 text-white px-8 py-4 rounded-full font-semibold text-lg hover:from-red-700 hover:to-red-800 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1">
-              Join Us Now
-            </button>
           </div>
         </div>
       </div>
@@ -107,8 +104,8 @@ const Footer = () => {
               </div>
               <div className="flex items-center space-x-3">
                 <Phone className="w-5 h-5 text-red-500 flex-shrink-0" />
-                <a href="tel:+573002764532" className="text-gray-300 hover:text-white transition-colors duration-300 text-sm">
-                  +57 300 2764532
+                <a href="tel:+5078388109" className="text-gray-300 hover:text-white transition-colors duration-300 text-sm">
+                  +507 8388109
                 </a>
               </div>
               <div className="flex items-center space-x-3">

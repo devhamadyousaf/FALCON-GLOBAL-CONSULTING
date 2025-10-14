@@ -39,13 +39,13 @@ const FAQ = () => {
     <section className="py-24 desert-sand-bg-subtle">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <h2 
+          <h2
             className="text-4xl md:text-5xl font-bold mb-6"
             style={{ color: 'rgba(0, 50, 83, 1)' }}
           >
             Frequently Asked Questions
           </h2>
-          <div className="w-20 h-1 bg-gradient-to-r from-blue-600 to-red-600 mx-auto rounded-full mb-8" />
+          <div className="w-24 h-1.5 mx-auto rounded-full mb-8" style={{ backgroundColor: 'rgba(187, 40, 44, 1)' }} />
           <p className="text-xl text-gray-600">
             Get answers to common questions about our services and process
           </p>
