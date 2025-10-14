@@ -3,7 +3,10 @@ const Franchise = () => {
     <section id="franchise program" className="py-16 desert-sand-bg-subtle">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+          <h2 
+            className="text-3xl md:text-4xl font-bold mb-4"
+            style={{ color: 'rgba(0, 50, 83, 1)' }}
+          >
             Franchise Opportunities
           </h2>
           <div className="w-16 h-1 bg-gradient-to-r from-blue-600 to-red-600 mx-auto rounded-full mb-6" />
@@ -19,7 +22,12 @@ const Franchise = () => {
             className="p-8 rounded-2xl"
             style={{ backgroundColor: '#fbf7eb' }}
           >
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">What We Offer</h3>
+            <h3 
+              className="text-2xl font-bold mb-4"
+              style={{ color: 'rgba(0, 50, 83, 1)' }}
+            >
+              What We Offer
+            </h3>
             <ul className="space-y-3 text-gray-700">
               <li className="flex items-start">
                 <span className="text-green-500 mr-2">✓</span>
@@ -48,7 +56,12 @@ const Franchise = () => {
             className="p-8 rounded-2xl"
             style={{ backgroundColor: '#fbf7eb' }}
           >
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">Who We're Looking For</h3>
+            <h3 
+              className="text-2xl font-bold mb-4"
+              style={{ color: 'rgba(0, 50, 83, 1)' }}
+            >
+              Who We're Looking For
+            </h3>
             <ul className="space-y-3 text-gray-700">
               <li className="flex items-start">
                 <span className="text-blue-500 mr-2">•</span>

@@ -34,7 +34,10 @@ const Contact = () => {
     <section id="contact" className="py-24 desert-sand-bg-subtle">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
+          <h2 
+            className="text-4xl md:text-5xl font-bold mb-6"
+            style={{ color: 'rgba(0, 50, 83, 1)' }}
+          >
             Get in Touch
           </h2>
           <div className="w-20 h-1 bg-gradient-to-r from-blue-600 to-red-600 mx-auto rounded-full mb-8" />

@@ -39,7 +39,10 @@ const FAQ = () => {
     <section className="py-24 desert-sand-bg-subtle">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
+          <h2 
+            className="text-4xl md:text-5xl font-bold mb-6"
+            style={{ color: 'rgba(0, 50, 83, 1)' }}
+          >
             Frequently Asked Questions
           </h2>
           <div className="w-20 h-1 bg-gradient-to-r from-blue-600 to-red-600 mx-auto rounded-full mb-8" />
@@ -89,7 +92,10 @@ const FAQ = () => {
 
         {/* Contact CTA */}
         <div className="text-center mt-12">
-          <p className="text-2xl md:text-3xl font-bold text-gray-900 mb-6">
+          <p 
+            className="text-2xl md:text-3xl font-bold mb-6"
+            style={{ color: 'rgba(0, 50, 83, 1)' }}
+          >
             Still have questions? We're here to help!
           </p>
           <button className="bg-gradient-to-r from-red-600 to-red-700 text-white px-8 py-4 rounded-full font-semibold hover:from-red-700 hover:to-red-800 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1">
