@@ -29,19 +29,37 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     // Simulate API call
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       setTimeout(() => {
-        const mockUser = {
-          id: '1',
-          email: email,
-          name: email.split('@')[0],
-          avatar: `https://ui-avatars.com/api/?name=${email.split('@')[0]}&background=random`,
-          createdAt: new Date().toISOString()
-        };
+        // Check for admin credentials
+        if (email === 'admin@falconglobalconsulting.com' && password === '123456789') {
+          const adminUser = {
+            id: 'admin_001',
+            email: email,
+            name: 'Admin',
+            role: 'admin',
+            avatar: `https://ui-avatars.com/api/?name=Admin&background=dc2626`,
+            createdAt: new Date().toISOString()
+          };
 
-        setUser(mockUser);
-        localStorage.setItem('user', JSON.stringify(mockUser));
-        resolve({ success: true, user: mockUser });
+          setUser(adminUser);
+          localStorage.setItem('user', JSON.stringify(adminUser));
+          resolve({ success: true, user: adminUser, role: 'admin' });
+        } else {
+          // Regular customer login
+          const mockUser = {
+            id: Math.random().toString(36).substr(2, 9),
+            email: email,
+            name: email.split('@')[0],
+            role: 'customer',
+            avatar: `https://ui-avatars.com/api/?name=${email.split('@')[0]}&background=random`,
+            createdAt: new Date().toISOString()
+          };
+
+          setUser(mockUser);
+          localStorage.setItem('user', JSON.stringify(mockUser));
+          resolve({ success: true, user: mockUser, role: 'customer' });
+        }
       }, 1000);
     });
   };
@@ -56,6 +74,7 @@ export function AuthProvider({ children }) {
           name: userData.fullName,
           phone: userData.phone,
           country: userData.country,
+          role: 'customer',
           avatar: `https://ui-avatars.com/api/?name=${userData.fullName}&background=random`,
           onboardingComplete: true,
           createdAt: new Date().toISOString()
@@ -76,6 +95,7 @@ export function AuthProvider({ children }) {
           id: 'google_' + Math.random().toString(36).substr(2, 9),
           email: 'user@gmail.com',
           name: 'Google User',
+          role: 'customer',
           avatar: 'https://ui-avatars.com/api/?name=Google+User&background=4285F4',
           provider: 'google',
           onboardingComplete: false, // Google users need to complete onboarding

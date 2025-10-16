@@ -50,7 +50,13 @@ export default function Login() {
       const result = await login(formData.email, formData.password);
       if (result.success) {
         alert('Login successful!\n\nWelcome back, ' + result.user.name);
-        router.push('/');
+
+        // Redirect based on user role
+        if (result.user.role === 'admin') {
+          router.push('/dashboard/admin');
+        } else {
+          router.push('/dashboard/customer');
+        }
       }
     } catch (error) {
       alert('Login failed. Please check your credentials.');
