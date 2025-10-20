@@ -13,6 +13,7 @@ pnpm dev
 # or
 bun dev
 ```
+done
 I hope my edits will work and it will work IA, and it did work so yeah
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
