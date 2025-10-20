@@ -1,6 +1,10 @@
 import { Check, Star, ArrowRight } from 'lucide-react';
+import { useRouter } from 'next/router';
+import { useAuth } from '../context/AuthContext';
 
 const Pricing = () => {
+  const router = useRouter();
+  const { isAuthenticated } = useAuth();
   const plans = [
     {
       name: 'Silver',
@@ -219,6 +223,13 @@ const Pricing = () => {
 
                 {/* CTA Button - Smooth glass effect */}
                 <button
+                  onClick={() => {
+                    if (isAuthenticated) {
+                      router.push('/dashboard/customer');
+                    } else {
+                      router.push('/signup');
+                    }
+                  }}
                   className="w-full text-white py-3.5 rounded-2xl font-bold text-sm transition-all duration-500 ease-in-out transform hover:-translate-y-1 hover:scale-[1.02] flex items-center justify-center space-x-2 relative overflow-hidden group/btn"
                   style={{
                     background: 'linear-gradient(135deg, rgba(0, 50, 83, 0.9), rgba(0, 50, 83, 1))',

@@ -60,14 +60,14 @@ export default function CustomerDashboard() {
   if (!user) return null;
 
   const services = [
-    { id: 'jobs', name: 'Jobs', icon: Briefcase, color: 'from-blue-500 to-blue-600', count: 12 },
-    { id: 'visa', name: 'Visa', icon: FileText, color: 'from-purple-500 to-purple-600', count: 3 },
-    { id: 'housing', name: 'Housing', icon: Home, color: 'from-green-500 to-green-600', count: 5 },
-    { id: 'flights', name: 'Flights', icon: Plane, color: 'from-red-500 to-red-600', count: 2 },
-    { id: 'rentalcars', name: 'Rental Cars', icon: Car, color: 'from-yellow-500 to-yellow-600', count: 4 },
-    { id: 'banking', name: 'Banking & Insurance', icon: Building2, color: 'from-indigo-500 to-indigo-600', count: 1 },
-    { id: 'wifi', name: 'WiFi & Mobile', icon: Wifi, color: 'from-pink-500 to-pink-600', count: 0 },
-    { id: 'electricity', name: 'Electricity', icon: Zap, color: 'from-orange-500 to-orange-600', count: 0 }
+    { id: 'jobs', name: 'Jobs', image: '/services/vecteezy_women-searching-for-jobs-using-a-computer_1901049.jpg', color: 'from-blue-500 to-blue-600', count: 12 },
+    { id: 'visa', name: 'Visa', image: '/services/vecteezy_man-stamping-approval-of-work-finance-banking-or-investment_13007688.jpg', color: 'from-purple-500 to-purple-600', count: 3 },
+    { id: 'housing', name: 'Housing', image: '/services/vecteezy_modern-cozy-apartment-interior-living-room-with-yellow_10234252.jpg', color: 'from-green-500 to-green-600', count: 5 },
+    { id: 'flights', name: 'Flights', image: '/services/vecteezy_airplane-in-sky-background-illustration_23570288.jpg', color: 'from-red-500 to-red-600', count: 2 },
+    { id: 'rentalcars', name: 'Rental Cars', image: '/services/vecteezy_lease-rental-car-sell-buy-dealership-manager-send-car_18790261.jpg', color: 'from-yellow-500 to-yellow-600', count: 4 },
+    { id: 'banking', name: 'Banking & Insurance', image: '/services/vecteezy_businessman-using-laptop-computer-with-online-banking-and_3712754.jpg', color: 'from-indigo-500 to-indigo-600', count: 1 },
+    { id: 'wifi', name: 'WiFi & Mobile', image: '/services/vecteezy_mobile-phone-mockup-illustration_23131277.jpg', color: 'from-pink-500 to-pink-600', count: 0 },
+    { id: 'electricity', name: 'Electricity', image: '/services/vecteezy_electricity-pylon-against-the-violet-and-orange-background_2442234.jpg', color: 'from-orange-500 to-orange-600', count: 0 }
   ];
 
   const recentActivities = [
@@ -242,21 +242,27 @@ export default function CustomerDashboard() {
               <div
                 key={service.id}
                 onClick={() => router.push(`/dashboard/services/${service.id}`)}
-                className="rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer border hover:border-blue-300 group backdrop-blur-md"
+                className="rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer border hover:border-blue-300 group backdrop-blur-md"
                 style={{
                   backgroundColor: 'rgba(255, 255, 255, 0.7)',
                   borderColor: 'rgba(255, 255, 255, 0.3)'
                 }}
               >
-                <div className={`w-14 h-14 bg-gradient-to-r ${service.color} rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
-                  <service.icon className="w-7 h-7 text-white" />
+                <div className="relative h-48 w-full overflow-hidden">
+                  <img
+                    src={service.image}
+                    alt={service.name}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  />
                 </div>
-                <h4 className="text-lg font-semibold text-gray-900 mb-2">{service.name}</h4>
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-gray-500">
-                    {service.count} {service.count === 1 ? 'item' : 'items'}
-                  </p>
-                  <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-blue-600 transition-colors" />
+                <div className="p-6">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-2">{service.name}</h4>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-gray-500">
+                      {service.count} {service.count === 1 ? 'item' : 'items'}
+                    </p>
+                    <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-blue-600 transition-colors" />
+                  </div>
                 </div>
               </div>
             ))}
