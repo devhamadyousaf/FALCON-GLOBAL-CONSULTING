@@ -133,13 +133,13 @@ const Footer = () => {
               © {currentYear} FALCON GLOBAL CONSULTING. All Rights Reserved.
             </p>
             <div className="flex items-center space-x-6 text-sm">
-              <a href="#" className="text-gray-400 hover:text-white transition-colors duration-300">
+              <a href="/privacy" className="text-gray-400 hover:text-white transition-colors duration-300">
                 Privacy Policy
               </a>
-              <a href="#" className="text-gray-400 hover:text-white transition-colors duration-300">
+              <a href="/terms" className="text-gray-400 hover:text-white transition-colors duration-300">
                 Terms of Service
               </a>
-              <a href="#" className="text-gray-400 hover:text-white transition-colors duration-300">
+              <a href="/cookies" className="text-gray-400 hover:text-white transition-colors duration-300">
                 Cookie Policy
               </a>
             </div>

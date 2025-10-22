@@ -256,11 +256,11 @@ export default function SignUp() {
               </div>
               <label htmlFor="terms" className="text-sm text-gray-600">
                 I agree to the{' '}
-                <a href="#" className="text-blue-600 hover:text-blue-700 font-medium">
+                <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700 font-medium">
                   Terms of Service
                 </a>{' '}
                 and{' '}
-                <a href="#" className="text-blue-600 hover:text-blue-700 font-medium">
+                <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700 font-medium">
                   Privacy Policy
                 </a>
               </label>
