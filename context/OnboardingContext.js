@@ -13,69 +13,51 @@ export function OnboardingProvider({ children }) {
     return user?.email ? `onboardingData_${user.email}` : 'onboardingData';
   };
 
-  // Load state from localStorage if it exists
-  const [onboardingData, setOnboardingData] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const storageKey = user?.email ? `onboardingData_${user.email}` : 'onboardingData';
-      const saved = localStorage.getItem(storageKey);
-      return saved ? JSON.parse(saved) : {
-        // Step 0: Relocation Destination
-        relocationType: '', // 'europe' or 'gcc'
-
-        // Step 1: Personal Details
-        personalDetails: {
-          fullName: '',
-          email: '',
-          telephone: '',
-          address: {
-            street: '',
-            city: '',
-            state: '',
-            zip: '',
-            country: ''
-          }
-        },
-
-        // Step 2: Visa Check (only for Europe)
-        visaCheck: {
-          stayLongerThan90Days: '',
-          citizenship: '',
-          englishLevel: '',
-          jobOffer: '',
-          education: '',
-          specialRegulation: '',
-          educationCountry: '',
-          degreeRecognized: '',
-          workExperience: ''
-        },
-
-        visaEligibilityResult: null, // 'eligible' or 'not_eligible'
-
-        // Step 3: Payment
-        paymentCompleted: false,
-        paymentDetails: null,
-
-        // Step 4: Onboarding Call
-        onboardingCallScheduled: false,
-        callScheduleDetails: null,
-
-        // Step 5: Document Upload
-        documentsUploaded: false,
-        documents: {
-          passport: null,
-          educationalCertificates: [],
-          experienceLetters: [],
-          jobOffer: null
-        },
-
-        // Progress tracking
-        currentStep: 0,
-        completedSteps: [],
-        lastUpdated: null
-      };
-    }
-    return {};
+  // Helper function to get initial state
+  const getInitialState = () => ({
+    relocationType: '',
+    personalDetails: {
+      fullName: '',
+      email: '',
+      telephone: '',
+      address: {
+        street: '',
+        city: '',
+        state: '',
+        zip: '',
+        country: ''
+      }
+    },
+    visaCheck: {
+      stayLongerThan90Days: '',
+      citizenship: '',
+      englishLevel: '',
+      jobOffer: '',
+      education: '',
+      specialRegulation: '',
+      educationCountry: '',
+      degreeRecognized: '',
+      workExperience: ''
+    },
+    visaEligibilityResult: null,
+    paymentCompleted: false,
+    paymentDetails: null,
+    onboardingCallScheduled: false,
+    callScheduleDetails: null,
+    documentsUploaded: false,
+    documents: {
+      passport: null,
+      educationalCertificates: [],
+      experienceLetters: [],
+      jobOffer: null
+    },
+    currentStep: 0,
+    completedSteps: [],
+    lastUpdated: null
   });
+
+  // Initialize with empty state - will load user-specific data in useEffect
+  const [onboardingData, setOnboardingData] = useState(getInitialState());
 
   // Save to localStorage whenever data changes (user-specific)
   useEffect(() => {
@@ -87,15 +69,19 @@ export function OnboardingProvider({ children }) {
 
   // Load user-specific data when user changes
   useEffect(() => {
-    if (typeof window !== 'undefined' && user) {
+    if (typeof window !== 'undefined' && user?.email) {
       const storageKey = getStorageKey();
       const saved = localStorage.getItem(storageKey);
       if (saved) {
+        // Load existing user's onboarding data
         setOnboardingData(JSON.parse(saved));
       } else {
-        // Reset to initial state for new user
-        resetOnboarding();
+        // New user - initialize with fresh state
+        setOnboardingData(getInitialState());
       }
+    } else if (typeof window !== 'undefined' && !user) {
+      // User logged out - reset to initial state
+      setOnboardingData(getInitialState());
     }
   }, [user?.email]);
 
@@ -179,43 +165,7 @@ export function OnboardingProvider({ children }) {
   };
 
   const resetOnboarding = () => {
-    const initialState = {
-      relocationType: '',
-      personalDetails: {
-        fullName: '',
-        email: '',
-        telephone: '',
-        address: { street: '', city: '', state: '', zip: '', country: '' }
-      },
-      visaCheck: {
-        stayLongerThan90Days: '',
-        citizenship: '',
-        englishLevel: '',
-        jobOffer: '',
-        education: '',
-        specialRegulation: '',
-        educationCountry: '',
-        degreeRecognized: '',
-        workExperience: ''
-      },
-      visaEligibilityResult: null,
-      paymentCompleted: false,
-      paymentDetails: null,
-      onboardingCallScheduled: false,
-      callScheduleDetails: null,
-      documentsUploaded: false,
-      documents: {
-        passport: null,
-        educationalCertificates: [],
-        experienceLetters: [],
-        jobOffer: null
-      },
-      currentStep: 0,
-      completedSteps: [],
-      lastUpdated: null
-    };
-
-    setOnboardingData(initialState);
+    setOnboardingData(getInitialState());
     if (typeof window !== 'undefined' && user) {
       const storageKey = getStorageKey();
       localStorage.removeItem(storageKey);

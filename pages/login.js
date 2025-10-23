@@ -54,6 +54,7 @@ export default function Login() {
         setToast({ show: true, message: 'Login successful! Welcome back, ' + result.user.name, type: 'success' });
 
         // Redirect based on user role
+        // DashboardGuard will check onboarding completion and redirect if needed
         setTimeout(() => {
           if (result.user.role === 'admin') {
             router.push('/dashboard/admin');
