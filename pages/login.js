@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { Globe, Mail, Lock, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import Toast from '../components/Toast';
 
 export default function Login() {
   const router = useRouter();
@@ -14,6 +15,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
   const handleInputChange = (e) => {
     setFormData({
@@ -28,16 +30,16 @@ export default function Login() {
       const result = await loginWithGoogle();
       if (result.success) {
         if (result.needsOnboarding) {
-          // Redirect to onboarding for new Google users
-          router.push('/onboarding');
+          // Redirect to new onboarding flow for new Google users
+          setToast({ show: true, message: 'Google Login successful! Welcome, ' + result.user.name, type: 'success' });
+          setTimeout(() => router.push('/onboarding-new'), 1500);
         } else {
-          alert('Google Login successful!\n\nWelcome back, ' + result.user.name);
-          router.push('/');
+          setToast({ show: true, message: 'Welcome back, ' + result.user.name, type: 'success' });
+          setTimeout(() => router.push('/'), 1500);
         }
       }
     } catch (error) {
-      alert('Login failed. Please try again.');
-    } finally {
+      setToast({ show: true, message: 'Login failed. Please try again.', type: 'error' });
       setLoading(false);
     }
   };
@@ -49,18 +51,19 @@ export default function Login() {
     try {
       const result = await login(formData.email, formData.password);
       if (result.success) {
-        alert('Login successful!\n\nWelcome back, ' + result.user.name);
+        setToast({ show: true, message: 'Login successful! Welcome back, ' + result.user.name, type: 'success' });
 
         // Redirect based on user role
-        if (result.user.role === 'admin') {
-          router.push('/dashboard/admin');
-        } else {
-          router.push('/dashboard/customer');
-        }
+        setTimeout(() => {
+          if (result.user.role === 'admin') {
+            router.push('/dashboard/admin');
+          } else {
+            router.push('/dashboard/customer');
+          }
+        }, 1500);
       }
     } catch (error) {
-      alert('Login failed. Please check your credentials.');
-    } finally {
+      setToast({ show: true, message: 'Login failed. Please check your credentials.', type: 'error' });
       setLoading(false);
     }
   };
@@ -182,7 +185,7 @@ export default function Login() {
                   Remember me
                 </label>
               </div>
-              <a href="#" className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+              <a href="#" className="text-sm font-medium hover:opacity-80 transition-opacity" style={{ color: 'rgba(0, 50, 83, 1)' }}>
                 Forgot password?
               </a>
             </div>
@@ -202,7 +205,7 @@ export default function Login() {
           <p className="text-center mt-6 text-sm text-gray-600">
             Don't have an account?{' '}
             <Link href="/signup">
-              <span className="text-blue-600 hover:text-blue-700 font-semibold cursor-pointer">
+              <span className="font-semibold cursor-pointer hover:opacity-80 transition-opacity" style={{ color: 'rgba(0, 50, 83, 1)' }}>
                 Create Account
               </span>
             </Link>
@@ -228,6 +231,15 @@ export default function Login() {
           </div>
         </div>
       </div>
+
+      {/* Toast Notification */}
+      {toast.show && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast({ ...toast, show: false })}
+        />
+      )}
     </div>
   );
 }

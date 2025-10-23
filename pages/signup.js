@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { Globe, Mail, Lock, User, Phone, MapPin, ArrowRight, Check } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import Toast from '../components/Toast';
 
 export default function SignUp() {
   const router = useRouter();
@@ -17,6 +18,7 @@ export default function SignUp() {
   });
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
   const handleInputChange = (e) => {
     setFormData({
@@ -31,16 +33,16 @@ export default function SignUp() {
       const result = await loginWithGoogle();
       if (result.success) {
         if (result.needsOnboarding) {
-          // Redirect to onboarding for new Google users
-          router.push('/onboarding');
+          // Redirect to new onboarding flow for new Google users
+          setToast({ show: true, message: 'Google Sign Up successful! Welcome, ' + result.user.name, type: 'success' });
+          setTimeout(() => router.push('/onboarding-new'), 1500);
         } else {
-          alert('Google Sign Up successful!\n\nWelcome back, ' + result.user.name);
-          router.push('/');
+          setToast({ show: true, message: 'Welcome back, ' + result.user.name, type: 'success' });
+          setTimeout(() => router.push('/'), 1500);
         }
       }
     } catch (error) {
-      alert('Sign up failed. Please try again.');
-    } finally {
+      setToast({ show: true, message: 'Sign up failed. Please try again.', type: 'error' });
       setLoading(false);
     }
   };
@@ -49,12 +51,12 @@ export default function SignUp() {
     e.preventDefault();
 
     if (formData.password !== formData.confirmPassword) {
-      alert('Passwords do not match!');
+      setToast({ show: true, message: 'Passwords do not match!', type: 'error' });
       return;
     }
 
     if (!agreed) {
-      alert('Please agree to the Terms of Service and Privacy Policy');
+      setToast({ show: true, message: 'Please agree to the Terms of Service and Privacy Policy', type: 'error' });
       return;
     }
 
@@ -63,12 +65,11 @@ export default function SignUp() {
     try {
       const result = await signup(formData);
       if (result.success) {
-        alert('Account created successfully!\n\nWelcome to Falcon Global Consulting, ' + result.user.name);
-        router.push('/');
+        setToast({ show: true, message: 'Account created successfully! Welcome to Falcon Global Consulting, ' + result.user.name, type: 'success' });
+        setTimeout(() => router.push('/onboarding-new'), 1500);
       }
     } catch (error) {
-      alert('Sign up failed. Please try again.');
-    } finally {
+      setToast({ show: true, message: 'Sign up failed. Please try again.', type: 'error' });
       setLoading(false);
     }
   };
@@ -256,11 +257,11 @@ export default function SignUp() {
               </div>
               <label htmlFor="terms" className="text-sm text-gray-600">
                 I agree to the{' '}
-                <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700 font-medium">
+                <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-medium hover:opacity-80 transition-opacity" style={{ color: 'rgba(0, 50, 83, 1)' }}>
                   Terms of Service
                 </a>{' '}
                 and{' '}
-                <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700 font-medium">
+                <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-medium hover:opacity-80 transition-opacity" style={{ color: 'rgba(0, 50, 83, 1)' }}>
                   Privacy Policy
                 </a>
               </label>
@@ -281,7 +282,7 @@ export default function SignUp() {
           <p className="text-center mt-6 text-sm text-gray-600">
             Already have an account?{' '}
             <Link href="/login">
-              <span className="text-blue-600 hover:text-blue-700 font-semibold cursor-pointer">
+              <span className="font-semibold cursor-pointer hover:opacity-80 transition-opacity" style={{ color: 'rgba(0, 50, 83, 1)' }}>
                 Sign In
               </span>
             </Link>
@@ -297,6 +298,15 @@ export default function SignUp() {
           </Link>
         </div>
       </div>
+
+      {/* Toast Notification */}
+      {toast.show && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast({ ...toast, show: false })}
+        />
+      )}
     </div>
   );
 }

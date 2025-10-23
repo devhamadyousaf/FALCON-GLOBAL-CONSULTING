@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../context/AuthContext';
+import DashboardGuard from '../../components/DashboardGuard';
 import {
   Briefcase,
   FileText,
@@ -24,7 +25,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 
-export default function CustomerDashboard() {
+function CustomerDashboard() {
   const router = useRouter();
   const { user, logout, isAuthenticated } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -593,5 +594,13 @@ export default function CustomerDashboard() {
       </footer>
       </div>
     </div>
+  );
+}
+
+export default function CustomerDashboardPage() {
+  return (
+    <DashboardGuard>
+      <CustomerDashboard />
+    </DashboardGuard>
   );
 }

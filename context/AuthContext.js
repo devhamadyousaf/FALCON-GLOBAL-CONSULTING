@@ -76,7 +76,7 @@ export function AuthProvider({ children }) {
           country: userData.country,
           role: 'customer',
           avatar: `https://ui-avatars.com/api/?name=${userData.fullName}&background=random`,
-          onboardingComplete: true,
+          onboardingComplete: false, // Changed to false - users must complete new onboarding flow
           createdAt: new Date().toISOString()
         };
 
