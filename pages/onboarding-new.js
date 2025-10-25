@@ -356,14 +356,14 @@ export default function OnboardingNew() {
   };
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#fbf7eb', fontSize: '14px' }}>
+    <div className="min-h-screen desert-sand-bg-subtle" style={{ fontSize: '14px' }}>
       {/* Header - Same as landing page */}
       <header className="fixed w-full z-50 pt-4">
         <div className="w-full px-6">
           <div
             className="backdrop-blur-lg px-8 py-3 transition-all duration-300"
             style={{
-              backgroundColor: '#fbf7eb',
+              backgroundColor: 'rgba(251, 247, 235, 0.95)',
               border: '2px solid rgba(187, 40, 44, 0.8)',
               borderRadius: '50px',
               boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
@@ -427,56 +427,63 @@ export default function OnboardingNew() {
       </header>
 
       {/* Main Content */}
-      <div className="pt-28 pb-12 px-4">
-        <div className="max-w-4xl mx-auto">
-          {/* Progress Steps - Modern Design */}
-          <div className="mb-8">
-            <div className="flex justify-between items-center relative">
-              {/* Progress Line */}
-              <div className="absolute top-1/2 left-0 w-full h-0.5 bg-gray-200 -translate-y-1/2 -z-10 rounded-full"></div>
-              <div
-                className="absolute top-1/2 left-0 h-0.5 -translate-y-1/2 -z-10 rounded-full transition-all duration-500"
-                style={{
-                  width: `${(getCurrentStepNumber() / getTotalSteps()) * 100}%`,
-                  backgroundColor: 'rgba(187, 40, 44, 1)'
-                }}
-              ></div>
+      <div className="pt-10 pb-8 px-3 md:px-4">
+        <div className="max-w-5xl mx-auto">
+          {/* Progress Steps - Modern Design with semi-transparent background */}
+          <div className="mb-4">
+            <div
+              className="rounded-xl px-3 py-2.5 md:px-4 md:py-3 shadow-lg backdrop-blur-sm"
+              style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                border: '1px solid rgba(187, 40, 44, 0.2)'
+              }}
+            >
+              <div className="flex justify-between items-center relative">
+                {/* Progress Line */}
+                <div className="absolute top-1/2 left-0 w-full h-0.5 bg-gray-200 -translate-y-1/2 -z-10 rounded-full"></div>
+                <div
+                  className="absolute top-1/2 left-0 h-0.5 -translate-y-1/2 -z-10 rounded-full transition-all duration-500"
+                  style={{
+                    width: `${(getCurrentStepNumber() / getTotalSteps()) * 100}%`,
+                    backgroundColor: 'rgba(187, 40, 44, 1)'
+                  }}
+                ></div>
 
-              {/* Step Indicators */}
-              {['Destination', 'Details', onboardingData.relocationType === 'europe' ? 'Visa' : '', 'Payment', 'Call', 'Documents'].filter(Boolean).map((step, index) => {
-                const stepNumber = index + 1;
-                const isComplete = stepNumber < getCurrentStepNumber();
-                const isCurrent = stepNumber === getCurrentStepNumber();
-                const isClickable = stepNumber <= getCurrentStepNumber();
+                {/* Step Indicators */}
+                {['Destination', 'Details', onboardingData.relocationType === 'europe' ? 'Visa' : '', 'Payment', 'Call', 'Documents'].filter(Boolean).map((step, index) => {
+                  const stepNumber = index + 1;
+                  const isComplete = stepNumber < getCurrentStepNumber();
+                  const isCurrent = stepNumber === getCurrentStepNumber();
+                  const isClickable = stepNumber <= getCurrentStepNumber();
 
-                return (
-                  <div
-                    key={stepNumber}
-                    className={`flex flex-col items-center relative bg-transparent ${isClickable ? 'cursor-pointer' : 'cursor-not-allowed'}`}
-                    style={{ backgroundColor: '#fbf7eb' }}
-                    onClick={() => isClickable && navigateToStep(stepNumber)}
-                  >
+                  return (
                     <div
-                      className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition-all duration-300 ${
-                        isComplete
-                          ? 'text-white hover:scale-110'
-                          : isCurrent
-                          ? 'text-white'
-                          : 'bg-gray-200 text-gray-400'
-                      } ${isClickable ? 'hover:scale-110' : ''}`}
-                      style={{
-                        backgroundColor: isComplete || isCurrent ? 'rgba(187, 40, 44, 1)' : undefined,
-                        border: isCurrent ? '2px solid rgba(3, 50, 83, 1)' : undefined
-                      }}
+                      key={stepNumber}
+                      className={`flex flex-col items-center relative ${isClickable ? 'cursor-pointer' : 'cursor-not-allowed'}`}
+                      onClick={() => isClickable && navigateToStep(stepNumber)}
                     >
-                      {isComplete ? <Check className="w-4 h-4" /> : stepNumber}
+                      <div
+                        className={`w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center font-bold text-[10px] md:text-xs transition-all duration-300 ${
+                          isComplete
+                            ? 'text-white hover:scale-110'
+                            : isCurrent
+                            ? 'text-white'
+                            : 'bg-gray-200 text-gray-400'
+                        } ${isClickable ? 'hover:scale-110' : ''}`}
+                        style={{
+                          backgroundColor: isComplete || isCurrent ? 'rgba(187, 40, 44, 1)' : undefined,
+                          border: isCurrent ? '2px solid rgba(3, 50, 83, 1)' : undefined
+                        }}
+                      >
+                        {isComplete ? <Check className="w-3 h-3" /> : stepNumber}
+                      </div>
+                      <span className={`mt-1 text-[9px] md:text-[10px] font-medium text-center leading-tight ${isCurrent ? 'text-gray-900' : 'text-gray-600'}`}>
+                        {step}
+                      </span>
                     </div>
-                    <span className={`mt-1.5 text-xs font-medium hidden sm:block ${isCurrent ? 'text-gray-900' : 'text-gray-500'}`}>
-                      {step}
-                    </span>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
 
@@ -502,44 +509,72 @@ export default function OnboardingNew() {
                   {/* Europe Option */}
                   <button
                     onClick={() => handleRelocationTypeSelect('europe')}
-                    className="group rounded-2xl p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left"
+                    className="group rounded-2xl overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 text-left relative h-64"
                     style={{
-                      border: '2px solid rgba(187, 40, 44, 0.3)',
-                      backgroundColor: 'white'
+                      border: '2px solid rgba(187, 40, 44, 0.3)'
                     }}
                   >
-                    <div className="text-4xl mb-3">🇪🇺</div>
-                    <h2 className="text-xl font-bold mb-2" style={{ color: 'rgba(3, 50, 83, 1)' }}>
-                      Europe
-                    </h2>
-                    <p className="text-sm text-gray-600 mb-4">
-                      Includes visa eligibility check for EU Blue Card (Germany focus)
-                    </p>
-                    <div className="flex items-center text-sm font-semibold" style={{ color: 'rgba(187, 40, 44, 1)' }}>
-                      <span>Select Europe</span>
-                      <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-2 transition-transform" />
+                    {/* Background Image */}
+                    <div
+                      className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
+                      style={{
+                        backgroundImage: 'url(https://static.vecteezy.com/system/resources/previews/025/484/310/non_2x/illuminated-national-landmark-izes-city-rich-history-generated-by-ai-free-photo.jpg)',
+                        filter: 'brightness(0.7)'
+                      }}
+                    />
+
+                    {/* Dark overlay for better text visibility */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent" />
+
+                    {/* Content */}
+                    <div className="relative z-10 h-full flex flex-col justify-end p-6">
+                      <div className="text-4xl mb-3">🇪🇺</div>
+                      <h2 className="text-2xl font-bold mb-2 text-white">
+                        Europe
+                      </h2>
+                      <p className="text-sm text-white/90 mb-4">
+                        Includes visa eligibility check for EU Blue Card (Germany focus)
+                      </p>
+                      <div className="flex items-center text-sm font-semibold text-white">
+                        <span>Select Europe</span>
+                        <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-2 transition-transform" />
+                      </div>
                     </div>
                   </button>
 
                   {/* GCC Option */}
                   <button
                     onClick={() => handleRelocationTypeSelect('gcc')}
-                    className="group rounded-2xl p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left"
+                    className="group rounded-2xl overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 text-left relative h-64"
                     style={{
-                      border: '2px solid rgba(187, 40, 44, 0.3)',
-                      backgroundColor: 'white'
+                      border: '2px solid rgba(187, 40, 44, 0.3)'
                     }}
                   >
-                    <div className="text-4xl mb-3">🏝️</div>
-                    <h2 className="text-xl font-bold mb-2" style={{ color: 'rgba(3, 50, 83, 1)' }}>
-                      GCC Countries
-                    </h2>
-                    <p className="text-sm text-gray-600 mb-4">
-                      UAE, Saudi Arabia, Qatar, Kuwait, Bahrain, Oman
-                    </p>
-                    <div className="flex items-center text-sm font-semibold" style={{ color: 'rgba(187, 40, 44, 1)' }}>
-                      <span>Select GCC</span>
-                      <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-2 transition-transform" />
+                    {/* Background Image */}
+                    <div
+                      className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
+                      style={{
+                        backgroundImage: 'url(https://static.vecteezy.com/system/resources/thumbnails/002/458/539/small_2x/manama-bahrain-nov-11-2016-view-of-bahrain-skyline-along-with-a-dramatic-sky-in-the-background-during-sunset-photo.jpg)',
+                        filter: 'brightness(0.7)'
+                      }}
+                    />
+
+                    {/* Dark overlay for better text visibility */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent" />
+
+                    {/* Content */}
+                    <div className="relative z-10 h-full flex flex-col justify-end p-6">
+                      <div className="text-4xl mb-3">🏝️</div>
+                      <h2 className="text-2xl font-bold mb-2 text-white">
+                        GCC Countries
+                      </h2>
+                      <p className="text-sm text-white/90 mb-4">
+                        UAE, Saudi Arabia, Qatar, Kuwait, Bahrain, Oman
+                      </p>
+                      <div className="flex items-center text-sm font-semibold text-white">
+                        <span>Select GCC</span>
+                        <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-2 transition-transform" />
+                      </div>
                     </div>
                   </button>
                 </div>
