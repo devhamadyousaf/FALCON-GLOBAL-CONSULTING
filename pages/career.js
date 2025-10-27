@@ -346,6 +346,7 @@ const Career = () => {
 
             <div className="text-center">
               <button
+                onClick={() => window.open('https://calendly.com/kc-orth3107/45min', '_blank')}
                 className="px-8 py-4 rounded-full font-semibold text-white text-lg transition-all duration-300 hover:shadow-xl"
                 style={{ backgroundColor: 'rgba(187, 40, 44, 1)' }}
               >

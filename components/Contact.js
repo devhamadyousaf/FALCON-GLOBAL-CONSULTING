@@ -98,9 +98,18 @@ const Contact = () => {
           {/* Contact Form */}
           <div className="relative">
             <form onSubmit={handleSubmit} className="bg-gradient-to-br from-gray-50 to-blue-50 rounded-3xl p-8 shadow-lg border border-gray-100">
-              <h3 className="text-2xl font-bold text-gray-900 mb-6">
-                Book Consultation
-              </h3>
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-2xl font-bold text-gray-900">
+                  Book Consultation
+                </h3>
+                <button
+                  onClick={() => window.open('https://calendly.com/kc-orth3107/45min', '_blank')}
+                  type="button"
+                  className="text-sm font-semibold text-blue-600 hover:text-blue-700 underline"
+                >
+                  Use Calendly
+                </button>
+              </div>
 
               <div className="space-y-6">
                 <div>

@@ -30,16 +30,19 @@ const Hero = () => {
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-6 mb-12 md:mb-16">
-            <button className="group text-white px-6 md:px-8 py-3 md:py-4 rounded-full font-semibold text-base md:text-lg transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex items-center space-x-2"
-                    style={{ 
-                      background: 'linear-gradient(to right, rgba(187, 40, 44, 1), rgba(187, 40, 44, 0.8))'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.background = 'linear-gradient(to right, rgba(187, 40, 44, 0.9), rgba(187, 40, 44, 0.7))';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.background = 'linear-gradient(to right, rgba(187, 40, 44, 1), rgba(187, 40, 44, 0.8))';
-                    }}>
+            <button
+              onClick={() => window.open('https://calendly.com/kc-orth3107/45min', '_blank')}
+              className="group text-white px-6 md:px-8 py-3 md:py-4 rounded-full font-semibold text-base md:text-lg transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex items-center space-x-2"
+              style={{
+                background: 'linear-gradient(to right, rgba(187, 40, 44, 1), rgba(187, 40, 44, 0.8))'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(to right, rgba(187, 40, 44, 0.9), rgba(187, 40, 44, 0.7))';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(to right, rgba(187, 40, 44, 1), rgba(187, 40, 44, 0.8))';
+              }}
+            >
               <span>Talk to an Expert</span>
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-300" />
             </button>

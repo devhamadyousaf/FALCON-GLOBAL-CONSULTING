@@ -77,15 +77,32 @@ const Services = () => {
               </ul>
 
               {/* Learn More Button */}
-              <button className="group/btn flex items-center font-semibold transition-colors duration-300 mt-auto" style={{ color: 'rgba(0, 50, 83, 1)' }}
-                      onMouseEnter={(e) => e.currentTarget.style.color = 'rgba(0, 50, 83, 0.7)'}
-                      onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(0, 50, 83, 1)'}>
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  const contactSection = document.getElementById('contact');
+                  if (contactSection) {
+                    const headerOffset = 100; // Adjust this value based on your header height
+                    const elementPosition = contactSection.getBoundingClientRect().top;
+                    const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+                    window.scrollTo({
+                      top: offsetPosition,
+                      behavior: 'smooth'
+                    });
+                  }
+                }}
+                className="group/btn flex items-center font-semibold transition-colors duration-300 mt-auto cursor-pointer relative z-10"
+                style={{ color: 'rgba(0, 50, 83, 1)' }}
+                onMouseEnter={(e) => e.currentTarget.style.color = 'rgba(0, 50, 83, 0.7)'}
+                onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(0, 50, 83, 1)'}
+              >
                 <span>Learn More</span>
                 <ArrowRight className="w-4 h-4 ml-2 group-hover/btn:translate-x-1 transition-transform duration-300" />
               </button>
 
               {/* Hover Gradient Background */}
-              <div className={`absolute inset-0 bg-gradient-to-br ${service.gradient} opacity-0 group-hover:opacity-5 rounded-3xl transition-opacity duration-500`} />
+              <div className={`absolute inset-0 bg-gradient-to-br ${service.gradient} opacity-0 group-hover:opacity-5 rounded-3xl transition-opacity duration-500 pointer-events-none`} />
             </div>
           ))}
         </div>

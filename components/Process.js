@@ -137,7 +137,10 @@ const Process = () => {
             <p className="text-sm md:text-base text-gray-600 mb-6 max-w-xl mx-auto">
               Let's discuss how our proven process can help you achieve your global ambitions
             </p>
-            <button className="bg-gradient-to-r from-red-600 to-red-700 text-white px-6 py-3 rounded-full font-semibold text-sm md:text-base hover:from-red-700 hover:to-red-800 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1">
+            <button
+              onClick={() => window.open('https://calendly.com/kc-orth3107/45min', '_blank')}
+              className="bg-gradient-to-r from-red-600 to-red-700 text-white px-6 py-3 rounded-full font-semibold text-sm md:text-base hover:from-red-700 hover:to-red-800 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+            >
               Schedule a Consultation
             </button>
           </div>
