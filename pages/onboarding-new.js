@@ -533,7 +533,7 @@ export default function OnboardingNew() {
                         Europe
                       </h2>
                       <p className="text-sm text-white/90 mb-4">
-                        Includes visa eligibility check for EU Blue Card (Germany focus)
+                        Check your visa eligibility for Germany (Work, Study, Family, or Business Visas)
                       </p>
                       <div className="flex items-center text-sm font-semibold text-white">
                         <span>Select Europe</span>
@@ -1268,76 +1268,58 @@ export default function OnboardingNew() {
             {/* Step 4: Schedule Call */}
             {currentMainStep === 4 && (
               <div>
-                <div className="text-center mb-8">
+                <div className="text-center mb-6">
                   <div className="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: 'rgba(34, 197, 94, 0.1)' }}>
                     <Calendar className="w-16 h-16" style={{ color: 'rgba(34, 197, 94, 1)' }} />
                   </div>
-                  <h2 className="text-4xl font-bold mb-2" style={{ color: 'rgba(3, 50, 83, 1)' }}>
+                  <h2 className="text-3xl md:text-4xl font-bold mb-2" style={{ color: 'rgba(3, 50, 83, 1)' }}>
                     Schedule Your Onboarding Call
                   </h2>
                   <p className="text-gray-600">Book a consultation with our relocation specialist</p>
                 </div>
 
-                <div className="space-y-6">
-                  <div>
-                    <label className="block text-sm font-semibold mb-2" style={{ color: 'rgba(3, 50, 83, 1)' }}>
-                      Select Date <span style={{ color: 'rgba(187, 40, 44, 1)' }}>*</span>
-                    </label>
-                    <div className="relative">
-                      <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                      <input
-                        type="date"
-                        value={callDate}
-                        onChange={(e) => setCallDate(e.target.value)}
-                        min={new Date().toISOString().split('T')[0]}
-                        className="w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-gray-200 focus:outline-none focus:border-blue-500 transition-all"
-                      />
-                    </div>
+                <div className="rounded-2xl p-4 mb-4" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '2px solid rgba(59, 130, 246, 0.3)' }}>
+                  <div className="flex items-start">
+                    <Info className="w-5 h-5 flex-shrink-0 mt-0.5 mr-2" style={{ color: 'rgba(59, 130, 246, 1)' }} />
+                    <p className="text-sm text-gray-700">
+                      During this 30-minute call, our specialist will review your application, answer questions, and provide guidance on your relocation journey.
+                    </p>
                   </div>
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-semibold mb-2" style={{ color: 'rgba(3, 50, 83, 1)' }}>
-                      Select Time <span style={{ color: 'rgba(187, 40, 44, 1)' }}>*</span>
-                    </label>
-                    <div className="relative">
-                      <Clock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
-                      <select
-                        value={callTime}
-                        onChange={(e) => setCallTime(e.target.value)}
-                        className="w-full pl-12 pr-12 py-4 rounded-2xl border-2 border-gray-200 focus:outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer"
-                      >
-                        <option value="">Select time slot</option>
-                        <option value="09:00">09:00 AM</option>
-                        <option value="10:00">10:00 AM</option>
-                        <option value="11:00">11:00 AM</option>
-                        <option value="12:00">12:00 PM</option>
-                        <option value="13:00">01:00 PM</option>
-                        <option value="14:00">02:00 PM</option>
-                        <option value="15:00">03:00 PM</option>
-                        <option value="16:00">04:00 PM</option>
-                        <option value="17:00">05:00 PM</option>
-                      </select>
-                      <ChevronDown className="absolute right-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
-                    </div>
-                  </div>
+                {/* Calendly Embedded Widget */}
+                <div className="rounded-2xl overflow-hidden" style={{ border: '2px solid rgba(187, 40, 44, 0.2)' }}>
+                  <iframe
+                    src="https://calendly.com/kc-orth3107/onboarding-call-"
+                    width="100%"
+                    height="700"
+                    frameBorder="0"
+                    style={{ minWidth: '320px' }}
+                  ></iframe>
+                </div>
 
-                  <div className="rounded-2xl p-4" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '2px solid rgba(59, 130, 246, 0.3)' }}>
-                    <div className="flex items-start">
-                      <Info className="w-5 h-5 flex-shrink-0 mt-0.5 mr-2" style={{ color: 'rgba(59, 130, 246, 1)' }} />
-                      <p className="text-sm text-gray-700">
-                        During this 30-minute call, our specialist will review your application, answer questions, and provide guidance on your relocation journey.
-                      </p>
-                    </div>
-                  </div>
-
+                <div className="mt-6 text-center">
                   <button
-                    onClick={handleScheduleCall}
-                    className="w-full px-6 py-4 rounded-2xl font-semibold text-white transition-all flex items-center justify-center hover:opacity-90"
+                    onClick={() => {
+                      // Mark step as completed and move to next step
+                      scheduleCall({
+                        calendlyBooked: true,
+                        scheduledAt: new Date().toISOString()
+                      });
+                      markStepCompleted(4);
+                      setToast({ message: 'Please proceed to the next step after booking your call', type: 'success' });
+                      setTimeout(() => {
+                        setCurrentMainStep(5);
+                        setCurrentStep(5);
+                      }, 1500);
+                    }}
+                    className="px-8 py-4 rounded-2xl font-semibold text-white transition-all flex items-center justify-center hover:opacity-90 mx-auto"
                     style={{ backgroundColor: 'rgba(34, 197, 94, 1)' }}
                   >
-                    Confirm Booking
+                    I've Booked My Call - Continue
                     <ArrowRight className="w-5 h-5 ml-2" />
                   </button>
+                  <p className="text-xs text-gray-500 mt-3">Click the button above after scheduling your call to continue</p>
                 </div>
               </div>
             )}
