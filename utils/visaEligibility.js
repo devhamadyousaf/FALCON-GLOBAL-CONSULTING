@@ -73,7 +73,7 @@ export function calculateVisaEligibility(visaCheckData) {
     eligible: isEligible,
     reasons: ineligibilityReasons,
     recommendation: isEligible
-      ? 'You appear to meet the basic requirements for an EU Blue Card. Our team will review your complete application and guide you through the next steps.'
+      ? 'Our team will review your complete application and guide you through the next steps.'
       : 'Based on your responses, you may not currently qualify for an EU Blue Card. Please schedule a consultation with our team to explore alternative visa options or ways to improve your eligibility.'
   };
 }

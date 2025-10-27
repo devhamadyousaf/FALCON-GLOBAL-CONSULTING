@@ -450,7 +450,7 @@ export default function OnboardingNew() {
                 ></div>
 
                 {/* Step Indicators */}
-                {['Destination', 'Details', onboardingData.relocationType === 'europe' ? 'Visa' : '', 'Payment', 'Call', 'Documents'].filter(Boolean).map((step, index) => {
+                {['Destination', 'Details', onboardingData.relocationType === 'europe' ? 'Visa Check' : '', 'Payment', 'Call', 'Documents'].filter(Boolean).map((step, index) => {
                   const stepNumber = index + 1;
                   const isComplete = stepNumber < getCurrentStepNumber();
                   const isCurrent = stepNumber === getCurrentStepNumber();
@@ -502,7 +502,7 @@ export default function OnboardingNew() {
                   <h1 className="text-2xl md:text-3xl font-bold mb-2" style={{ color: 'rgba(3, 50, 83, 1)' }}>
                     Welcome, {user.name}!
                   </h1>
-                  <p className="text-base text-gray-600">Where would you like to relocate?</p>
+                  <p className="text-base text-gray-600">Where do you see your future?</p>
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-6">
@@ -528,7 +528,6 @@ export default function OnboardingNew() {
 
                     {/* Content */}
                     <div className="relative z-10 h-full flex flex-col justify-end p-6">
-                      <div className="text-4xl mb-3">🇪🇺</div>
                       <h2 className="text-2xl font-bold mb-2 text-white">
                         Europe
                       </h2>
@@ -564,7 +563,6 @@ export default function OnboardingNew() {
 
                     {/* Content */}
                     <div className="relative z-10 h-full flex flex-col justify-end p-6">
-                      <div className="text-4xl mb-3">🏝️</div>
                       <h2 className="text-2xl font-bold mb-2 text-white">
                         GCC Countries
                       </h2>
@@ -999,11 +997,8 @@ export default function OnboardingNew() {
                         <div className="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: 'rgba(34, 197, 94, 0.1)' }}>
                           <CheckCircle className="w-16 h-16" style={{ color: 'rgba(34, 197, 94, 1)' }} />
                         </div>
-                        <h2 className="text-4xl font-bold mb-2" style={{ color: 'rgba(3, 50, 83, 1)' }}>
-                          Congratulations!
-                        </h2>
                         <p className="text-2xl font-semibold" style={{ color: 'rgba(34, 197, 94, 1)' }}>
-                          You are eligible for the EU Blue Card visa
+                          Quick visa check - Reliable for applying for visa
                         </p>
                       </div>
 
