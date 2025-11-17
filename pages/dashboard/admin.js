@@ -30,47 +30,358 @@ import {
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, logout, isAuthenticated, supabase } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [searchQuery, setSearchQuery] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [notifications, setNotifications] = useState([
-    { id: 1, title: 'New User Registered', message: 'Sarah Smith just created an account', time: '1h ago', type: 'success', read: false },
-    { id: 2, title: 'System Alert', message: 'Server CPU usage is high (85%)', time: '3h ago', type: 'warning', read: false },
-    { id: 3, title: 'Payment Received', message: 'Payment of $299 from John Doe', time: '5h ago', type: 'success', read: false },
-    { id: 4, title: 'Review Required', message: '5 visa applications pending review', time: '1d ago', type: 'info', read: false }
-  ]);
+  const [loading, setLoading] = useState(true);
+  
+  // Dynamic data states
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    activeApplications: 0,
+    totalRevenue: 0,
+    pendingReviews: 0
+  });
+  const [recentUsers, setRecentUsers] = useState([]);
+  const [recentApplications, setRecentApplications] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
+  const [allApplications, setAllApplications] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated || !user) {
       router.push('/login');
     } else if (user.role !== 'admin') {
       router.push('/dashboard/customer');
+    } else {
+      // Load admin data
+      loadAdminData();
     }
   }, [isAuthenticated, user, router]);
 
-  const markAsRead = (notificationId) => {
-    setNotifications(notifications.map(notif =>
-      notif.id === notificationId ? { ...notif, read: true } : notif
-    ));
+  const loadAdminData = async () => {
+    setLoading(true);
+    try {
+      await Promise.all([
+        fetchStats(),
+        fetchRecentUsers(),
+        fetchRecentApplications(),
+        fetchAllUsers(),
+        fetchAllApplications(),
+        fetchNotifications()
+      ]);
+    } catch (error) {
+      console.error('Error loading admin data:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const markAllAsRead = () => {
-    setNotifications(notifications.map(notif => ({ ...notif, read: true })));
+  const fetchStats = async () => {
+    try {
+      // Total Users
+      const { count: totalUsers } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true });
+
+      // Active Applications
+      const { count: activeApplications } = await supabase
+        .from('job_applications')
+        .select('*', { count: 'exact', head: true })
+        .in('status', ['pending', 'submitted']);
+
+      // Total Revenue
+      const { data: payments } = await supabase
+        .from('payments')
+        .select('amount')
+        .eq('status', 'completed');
+      
+      const totalRevenue = payments?.reduce((sum, payment) => sum + Number(payment.amount || 0), 0) || 0;
+
+      // Pending Reviews (documents not verified)
+      const { count: pendingReviews } = await supabase
+        .from('documents')
+        .select('*', { count: 'exact', head: true })
+        .eq('verified', false);
+
+      setStats({
+        totalUsers: totalUsers || 0,
+        activeApplications: activeApplications || 0,
+        totalRevenue: totalRevenue,
+        pendingReviews: pendingReviews || 0
+      });
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
+  };
+
+  const fetchRecentUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, email, full_name, role, created_at, onboarding_complete')
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (error) {
+        console.error('Error fetching users:', error);
+        throw error;
+      }
+
+      console.log('Fetched users:', data); // Debug log
+
+      // Get application counts for each user
+      const usersWithCounts = await Promise.all(
+        (data || []).map(async (userData) => {
+          const { count } = await supabase
+            .from('job_applications')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', userData.id);
+
+          return {
+            ...userData,
+            applicationCount: count || 0
+          };
+        })
+      );
+
+      console.log('Users with counts:', usersWithCounts); // Debug log
+      setRecentUsers(usersWithCounts);
+    } catch (error) {
+      console.error('Error fetching recent users:', error);
+      setRecentUsers([]); // Set empty array on error
+    }
+  };
+
+  const fetchRecentApplications = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('job_applications')
+        .select(`
+          id,
+          status,
+          applied_at,
+          user_id,
+          profiles!inner(full_name, email),
+          Job-Leads!inner(jobTitle, companyName)
+        `)
+        .order('applied_at', { ascending: false })
+        .limit(5);
+
+      if (error) throw error;
+      setRecentApplications(data || []);
+    } catch (error) {
+      console.error('Error fetching recent applications:', error);
+    }
+  };
+
+  const fetchAllUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, email, full_name, role, created_at, onboarding_complete')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching all users:', error);
+        throw error;
+      }
+
+      console.log('Fetched all users:', data); // Debug log
+
+      // Get application counts for each user
+      const usersWithCounts = await Promise.all(
+        (data || []).map(async (userData) => {
+          const { count } = await supabase
+            .from('job_applications')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', userData.id);
+
+          return {
+            ...userData,
+            applicationCount: count || 0
+          };
+        })
+      );
+
+      console.log('All users with counts:', usersWithCounts); // Debug log
+      setAllUsers(usersWithCounts);
+    } catch (error) {
+      console.error('Error fetching all users:', error);
+      setAllUsers([]); // Set empty array on error
+    }
+  };
+
+  const fetchAllApplications = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('job_applications')
+        .select(`
+          id,
+          status,
+          applied_at,
+          user_id,
+          profiles!inner(full_name, email),
+          Job-Leads!inner(jobTitle, companyName)
+        `)
+        .order('applied_at', { ascending: false });
+
+      if (error) throw error;
+      setAllApplications(data || []);
+    } catch (error) {
+      console.error('Error fetching all applications:', error);
+    }
+  };
+
+  const fetchNotifications = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      
+      setNotifications(data?.map(n => ({
+        id: n.id,
+        title: n.title,
+        message: n.message,
+        time: getTimeAgo(n.created_at),
+        type: n.type,
+        read: n.read
+      })) || []);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      // Set default notifications if none found
+      setNotifications([]);
+    }
+  };
+
+  const getTimeAgo = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.floor((now - date) / 1000);
+    
+    if (seconds < 60) return 'Just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+    return `${Math.floor(seconds / 604800)}w ago`;
+  };
+
+  const markAsRead = async (notificationId) => {
+    try {
+      await supabase
+        .from('notifications')
+        .update({ read: true, read_at: new Date().toISOString() })
+        .eq('id', notificationId);
+      
+      setNotifications(notifications.map(notif =>
+        notif.id === notificationId ? { ...notif, read: true } : notif
+      ));
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      await supabase
+        .from('notifications')
+        .update({ read: true, read_at: new Date().toISOString() })
+        .eq('user_id', user.id)
+        .eq('read', false);
+      
+      setNotifications(notifications.map(notif => ({ ...notif, read: true })));
+    } catch (error) {
+      console.error('Error marking all as read:', error);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+    
+    setDeleting(true);
+    try {
+      // Delete user's onboarding data
+      await supabase
+        .from('onboarding_data')
+        .delete()
+        .eq('user_id', userToDelete.id);
+
+      // Delete user's job applications
+      await supabase
+        .from('job_applications')
+        .delete()
+        .eq('user_id', userToDelete.id);
+
+      // Delete user's documents
+      await supabase
+        .from('documents')
+        .delete()
+        .eq('user_id', userToDelete.id);
+
+      // Delete user's payments
+      await supabase
+        .from('payments')
+        .delete()
+        .eq('user_id', userToDelete.id);
+
+      // Delete user's notifications
+      await supabase
+        .from('notifications')
+        .delete()
+        .eq('user_id', userToDelete.id);
+
+      // Delete user profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userToDelete.id);
+
+      if (profileError) {
+        console.error('Error deleting profile:', profileError);
+        alert('Error deleting user profile: ' + profileError.message);
+        setDeleting(false);
+        return;
+      }
+
+      // Refresh the user lists
+      await Promise.all([
+        fetchRecentUsers(),
+        fetchAllUsers(),
+        fetchStats()
+      ]);
+
+      alert('User deleted successfully!');
+      setShowDeleteModal(false);
+      setUserToDelete(null);
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      alert('Error deleting user: ' + error.message);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
   if (!user || user.role !== 'admin') return null;
 
-  // Mock data for admin dashboard
-  const stats = [
+  // Format stats for display
+  const statsDisplay = [
     {
       id: 1,
       name: 'Total Users',
-      value: '1,284',
+      value: stats.totalUsers.toLocaleString(),
       change: '+12.5%',
       icon: Users,
       color: 'from-blue-500 to-blue-600',
@@ -79,7 +390,7 @@ export default function AdminDashboard() {
     {
       id: 2,
       name: 'Active Applications',
-      value: '856',
+      value: stats.activeApplications.toLocaleString(),
       change: '+8.2%',
       icon: FileText,
       color: 'from-green-500 to-green-600',
@@ -88,7 +399,7 @@ export default function AdminDashboard() {
     {
       id: 3,
       name: 'Revenue (MTD)',
-      value: '$45,290',
+      value: `$${stats.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
       change: '+18.7%',
       icon: DollarSign,
       color: 'from-purple-500 to-purple-600',
@@ -97,73 +408,11 @@ export default function AdminDashboard() {
     {
       id: 4,
       name: 'Pending Reviews',
-      value: '124',
+      value: stats.pendingReviews.toLocaleString(),
       change: '-5.3%',
       icon: Clock,
       color: 'from-orange-500 to-orange-600',
       trend: 'down'
-    }
-  ];
-
-  const recentUsers = [
-    {
-      id: 1,
-      name: 'John Doe',
-      email: 'john@example.com',
-      status: 'active',
-      joined: '2 hours ago',
-      applications: 3
-    },
-    {
-      id: 2,
-      name: 'Sarah Smith',
-      email: 'sarah@example.com',
-      status: 'active',
-      joined: '5 hours ago',
-      applications: 7
-    },
-    {
-      id: 3,
-      name: 'Mike Johnson',
-      email: 'mike@example.com',
-      status: 'pending',
-      joined: '1 day ago',
-      applications: 2
-    },
-    {
-      id: 4,
-      name: 'Emma Wilson',
-      email: 'emma@example.com',
-      status: 'blocked',
-      joined: '3 days ago',
-      applications: 0
-    }
-  ];
-
-  const recentApplications = [
-    {
-      id: 1,
-      user: 'John Doe',
-      service: 'Jobs',
-      status: 'completed',
-      date: '2 hours ago',
-      amount: '$149'
-    },
-    {
-      id: 2,
-      user: 'Sarah Smith',
-      service: 'Visa',
-      status: 'pending',
-      date: '5 hours ago',
-      amount: '$299'
-    },
-    {
-      id: 3,
-      user: 'Mike Johnson',
-      service: 'Housing',
-      status: 'in_progress',
-      date: '1 day ago',
-      amount: '$199'
     }
   ];
 
@@ -173,6 +422,10 @@ export default function AdminDashboard() {
     { id: 'applications', name: 'Applications', icon: FileText },
     { id: 'settings', name: 'Settings', icon: Settings }
   ];
+
+  // Display users list based on active tab
+  const displayUsers = activeTab === 'users' ? allUsers : recentUsers;
+  const displayApplications = activeTab === 'applications' ? allApplications : recentApplications;
 
   return (
     <div className="min-h-screen relative">
@@ -274,11 +527,19 @@ export default function AdminDashboard() {
               </button>
               <div className="flex items-center space-x-3">
                 <img
-                  src={user.avatar}
-                  alt={user.name}
-                  className="w-10 h-10 rounded-full"
+                  src={user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.email)}&background=003253&color=fff&bold=true`}
+                  alt={user.name || user.email}
+                  className="w-10 h-10 rounded-full object-cover"
                   style={{ border: '2px solid rgba(187, 40, 44, 1)' }}
+                  onError={(e) => {
+                    e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.email)}&background=003253&color=fff&bold=true`;
+                  }}
                 />
+                <div className="hidden md:block">
+                  <p className="text-sm font-semibold" style={{ color: 'rgba(0, 50, 83, 1)' }}>
+                    {user.name || 'Admin'}
+                  </p>
+                </div>
                 <button
                   onClick={logout}
                   className="hidden sm:flex items-center space-x-2 px-4 py-2 font-bold text-sm text-white transition-all duration-200"
@@ -360,29 +621,41 @@ export default function AdminDashboard() {
           <>
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {stats.map((stat) => (
-            <div
-              key={stat.id}
-              className="rounded-2xl p-6 shadow-lg border backdrop-blur-md hover:shadow-xl transition-all duration-300"
-              style={{
-                backgroundColor: 'rgba(255, 255, 255, 0.7)',
-                borderColor: 'rgba(255, 255, 255, 0.3)'
-              }}
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className={`w-12 h-12 bg-gradient-to-r ${stat.color} rounded-xl flex items-center justify-center`}>
-                  <stat.icon className="w-6 h-6 text-white" />
-                </div>
-                <span className={`text-sm font-medium ${
-                  stat.trend === 'up' ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  {stat.change}
-                </span>
+          {loading ? (
+            // Loading skeletons
+            [1, 2, 3, 4].map((i) => (
+              <div key={i} className="rounded-2xl p-6 shadow-lg border backdrop-blur-md animate-pulse"
+                style={{ backgroundColor: 'rgba(255, 255, 255, 0.7)', borderColor: 'rgba(255, 255, 255, 0.3)' }}>
+                <div className="h-12 bg-gray-200 rounded mb-4"></div>
+                <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                <div className="h-8 bg-gray-200 rounded"></div>
               </div>
-              <p className="text-sm text-gray-500 mb-1">{stat.name}</p>
-              <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-            </div>
-          ))}
+            ))
+          ) : (
+            statsDisplay.map((stat) => (
+              <div
+                key={stat.id}
+                className="rounded-2xl p-6 shadow-lg border backdrop-blur-md hover:shadow-xl transition-all duration-300"
+                style={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.7)',
+                  borderColor: 'rgba(255, 255, 255, 0.3)'
+                }}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className={`w-12 h-12 bg-gradient-to-r ${stat.color} rounded-xl flex items-center justify-center`}>
+                    <stat.icon className="w-6 h-6 text-white" />
+                  </div>
+                  <span className={`text-sm font-medium ${
+                    stat.trend === 'up' ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {stat.change}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-500 mb-1">{stat.name}</p>
+                <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+              </div>
+            ))
+          )}
         </div>
 
         {/* Main Content Grid */}
@@ -407,42 +680,73 @@ export default function AdminDashboard() {
             </div>
 
             <div className="space-y-4">
-              {recentUsers.map((userData) => (
-                <div
-                  key={userData.id}
-                  className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
-                >
-                  <div className="flex items-center space-x-3">
-                    <img
-                      src={`https://ui-avatars.com/api/?name=${userData.name}&background=random`}
-                      alt={userData.name}
-                      className="w-10 h-10 rounded-full"
-                    />
-                    <div>
-                      <p className="font-medium text-gray-900">{userData.name}</p>
-                      <p className="text-sm text-gray-500">{userData.email}</p>
+              {loading ? (
+                // Loading skeleton
+                [1, 2, 3, 4].map((i) => (
+                  <div key={i} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl animate-pulse">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-gray-200 rounded-full"></div>
+                      <div>
+                        <div className="h-4 w-32 bg-gray-200 rounded mb-2"></div>
+                        <div className="h-3 w-40 bg-gray-200 rounded"></div>
+                      </div>
+                    </div>
+                    <div className="h-6 w-16 bg-gray-200 rounded-full"></div>
+                  </div>
+                ))
+              ) : recentUsers.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>No users found</p>
+                </div>
+              ) : (
+                recentUsers.map((userData) => (
+                  <div
+                    key={userData.id}
+                    className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <img
+                        src={`https://ui-avatars.com/api/?name=${encodeURIComponent(userData.full_name || userData.email)}&background=random`}
+                        alt={userData.full_name || userData.email}
+                        className="w-10 h-10 rounded-full"
+                      />
+                      <div>
+                        <p className="font-medium text-gray-900">{userData.full_name || 'No Name'}</p>
+                        <p className="text-sm text-gray-500">{userData.email}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        userData.onboarding_complete ? 'bg-green-100 text-green-700' :
+                        'bg-yellow-100 text-yellow-700'
+                      }`}>
+                        {userData.onboarding_complete ? 'Active' : 'Pending'}
+                      </span>
+                      <button 
+                        onClick={() => router.push(`/dashboard/admin/user/${userData.id}`)}
+                        className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+                        title="View User"
+                      >
+                        <Eye className="w-4 h-4 text-gray-600" />
+                      </button>
+                      <button className="p-2 hover:bg-gray-200 rounded-lg transition-colors" title="Edit User">
+                        <Edit className="w-4 h-4 text-gray-600" />
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setUserToDelete(userData);
+                          setShowDeleteModal(true);
+                        }}
+                        className="p-2 hover:bg-red-100 rounded-lg transition-colors"
+                        title="Delete User"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-600" />
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      userData.status === 'active' ? 'bg-green-100 text-green-700' :
-                      userData.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                      'bg-red-100 text-red-700'
-                    }`}>
-                      {userData.status.charAt(0).toUpperCase() + userData.status.slice(1)}
-                    </span>
-                    <button className="p-2 hover:bg-gray-200 rounded-lg transition-colors">
-                      <Eye className="w-4 h-4 text-gray-600" />
-                    </button>
-                    <button className="p-2 hover:bg-gray-200 rounded-lg transition-colors">
-                      <Edit className="w-4 h-4 text-gray-600" />
-                    </button>
-                    <button className="p-2 hover:bg-red-100 rounded-lg transition-colors">
-                      <Trash2 className="w-4 h-4 text-red-600" />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
 
@@ -466,41 +770,67 @@ export default function AdminDashboard() {
             </div>
 
             <div className="space-y-4">
-              {recentApplications.map((app) => (
-                <div
-                  key={app.id}
-                  className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
-                >
-                  <div className="flex items-center space-x-4">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      app.status === 'completed' ? 'bg-green-100' :
-                      app.status === 'pending' ? 'bg-yellow-100' : 'bg-blue-100'
-                    }`}>
-                      {app.status === 'completed' ? (
-                        <CheckCircle className="w-5 h-5 text-green-600" />
-                      ) : app.status === 'pending' ? (
-                        <Clock className="w-5 h-5 text-yellow-600" />
-                      ) : (
-                        <Activity className="w-5 h-5 text-blue-600" />
-                      )}
+              {loading ? (
+                // Loading skeleton
+                [1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl animate-pulse">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-10 h-10 bg-gray-200 rounded-full"></div>
+                      <div>
+                        <div className="h-4 w-32 bg-gray-200 rounded mb-2"></div>
+                        <div className="h-3 w-40 bg-gray-200 rounded"></div>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium text-gray-900">{app.user}</p>
-                      <p className="text-sm text-gray-500">{app.service} - {app.date}</p>
-                    </div>
+                    <div className="h-6 w-20 bg-gray-200 rounded-full"></div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-gray-900">{app.amount}</p>
-                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
-                      app.status === 'completed' ? 'bg-green-100 text-green-700' :
-                      app.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                      'bg-blue-100 text-blue-700'
-                    }`}>
-                      {app.status.replace('_', ' ').charAt(0).toUpperCase() + app.status.replace('_', ' ').slice(1)}
-                    </span>
-                  </div>
+                ))
+              ) : recentApplications.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <FileText className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>No applications found</p>
                 </div>
-              ))}
+              ) : (
+                recentApplications.map((app) => (
+                  <div
+                    key={app.id}
+                    className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                        app.status === 'accepted' ? 'bg-green-100' :
+                        app.status === 'pending' || app.status === 'submitted' ? 'bg-yellow-100' : 
+                        app.status === 'rejected' ? 'bg-red-100' : 'bg-blue-100'
+                      }`}>
+                        {app.status === 'accepted' ? (
+                          <CheckCircle className="w-5 h-5 text-green-600" />
+                        ) : (app.status === 'pending' || app.status === 'submitted') ? (
+                          <Clock className="w-5 h-5 text-yellow-600" />
+                        ) : app.status === 'rejected' ? (
+                          <AlertCircle className="w-5 h-5 text-red-600" />
+                        ) : (
+                          <Activity className="w-5 h-5 text-blue-600" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">{app.profiles?.full_name || 'Unknown User'}</p>
+                        <p className="text-sm text-gray-500">
+                          {app['Job-Leads']?.jobTitle || 'Job Application'} • {getTimeAgo(app.applied_at)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
+                        app.status === 'accepted' ? 'bg-green-100 text-green-700' :
+                        (app.status === 'pending' || app.status === 'submitted') ? 'bg-yellow-100 text-yellow-700' :
+                        app.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                        'bg-blue-100 text-blue-700'
+                      }`}>
+                        {app.status.charAt(0).toUpperCase() + app.status.slice(1)}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -561,43 +891,78 @@ export default function AdminDashboard() {
             </div>
 
             <div className="space-y-4">
-              {recentUsers.map((userData) => (
-                <div
-                  key={userData.id}
-                  className="flex items-center justify-between p-6 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
-                >
-                  <div className="flex items-center space-x-4">
-                    <img
-                      src={`https://ui-avatars.com/api/?name=${userData.name}&background=random`}
-                      alt={userData.name}
-                      className="w-12 h-12 rounded-full"
-                    />
-                    <div>
-                      <p className="font-semibold text-gray-900 text-lg">{userData.name}</p>
-                      <p className="text-sm text-gray-500">{userData.email}</p>
-                      <p className="text-xs text-gray-400 mt-1">Joined {userData.joined} • {userData.applications} applications</p>
+              {loading ? (
+                // Loading skeleton
+                [1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="flex items-center justify-between p-6 bg-gray-50 rounded-xl animate-pulse">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-12 h-12 bg-gray-200 rounded-full"></div>
+                      <div>
+                        <div className="h-5 w-40 bg-gray-200 rounded mb-2"></div>
+                        <div className="h-4 w-48 bg-gray-200 rounded mb-1"></div>
+                        <div className="h-3 w-32 bg-gray-200 rounded"></div>
+                      </div>
+                    </div>
+                    <div className="h-8 w-24 bg-gray-200 rounded-full"></div>
+                  </div>
+                ))
+              ) : displayUsers.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <Users className="w-16 h-16 mx-auto mb-3 opacity-50" />
+                  <p className="text-lg font-medium">No users found</p>
+                  <p className="text-sm mt-1">Users will appear here once they sign up</p>
+                </div>
+              ) : (
+                displayUsers.map((userData) => (
+                  <div
+                    key={userData.id}
+                    className="flex items-center justify-between p-6 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <img
+                        src={`https://ui-avatars.com/api/?name=${encodeURIComponent(userData.full_name || userData.email)}&background=random`}
+                        alt={userData.full_name || userData.email}
+                        className="w-12 h-12 rounded-full"
+                      />
+                      <div>
+                        <p className="font-semibold text-gray-900 text-lg">{userData.full_name || 'No Name'}</p>
+                        <p className="text-sm text-gray-500">{userData.email}</p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          Joined {getTimeAgo(userData.created_at)} • {userData.applicationCount || 0} applications
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <span className={`px-4 py-2 rounded-full text-sm font-medium ${
+                        userData.onboarding_complete ? 'bg-green-100 text-green-700' :
+                        'bg-yellow-100 text-yellow-700'
+                      }`}>
+                        {userData.onboarding_complete ? 'Active' : 'Pending'}
+                      </span>
+                      <button 
+                        onClick={() => router.push(`/dashboard/admin/user/${userData.id}`)}
+                        className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+                        title="View User"
+                      >
+                        <Eye className="w-5 h-5 text-gray-600" />
+                      </button>
+                      <button className="p-2 hover:bg-gray-200 rounded-lg transition-colors" title="Edit User">
+                        <Edit className="w-5 h-5 text-gray-600" />
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setUserToDelete(userData);
+                          setShowDeleteModal(true);
+                        }}
+                        className="p-2 hover:bg-red-100 rounded-lg transition-colors"
+                        title="Delete User"
+                      >
+                        <Trash2 className="w-5 h-5 text-red-600" />
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-3">
-                    <span className={`px-4 py-2 rounded-full text-sm font-medium ${
-                      userData.status === 'active' ? 'bg-green-100 text-green-700' :
-                      userData.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                      'bg-red-100 text-red-700'
-                    }`}>
-                      {userData.status.charAt(0).toUpperCase() + userData.status.slice(1)}
-                    </span>
-                    <button className="p-2 hover:bg-gray-200 rounded-lg transition-colors">
-                      <Eye className="w-5 h-5 text-gray-600" />
-                    </button>
-                    <button className="p-2 hover:bg-gray-200 rounded-lg transition-colors">
-                      <Edit className="w-5 h-5 text-gray-600" />
-                    </button>
-                    <button className="p-2 hover:bg-red-100 rounded-lg transition-colors">
-                      <Trash2 className="w-5 h-5 text-red-600" />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         )}
@@ -629,47 +994,75 @@ export default function AdminDashboard() {
             </div>
 
             <div className="space-y-4">
-              {recentApplications.map((app) => (
-                <div
-                  key={app.id}
-                  className="flex items-center justify-between p-6 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
-                >
-                  <div className="flex items-center space-x-4">
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                      app.status === 'completed' ? 'bg-green-100' :
-                      app.status === 'pending' ? 'bg-yellow-100' : 'bg-blue-100'
-                    }`}>
-                      {app.status === 'completed' ? (
-                        <CheckCircle className="w-6 h-6 text-green-600" />
-                      ) : app.status === 'pending' ? (
-                        <Clock className="w-6 h-6 text-yellow-600" />
-                      ) : (
-                        <Activity className="w-6 h-6 text-blue-600" />
-                      )}
+              {loading ? (
+                // Loading skeleton
+                [1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="flex items-center justify-between p-6 bg-gray-50 rounded-xl animate-pulse">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-12 h-12 bg-gray-200 rounded-full"></div>
+                      <div>
+                        <div className="h-5 w-40 bg-gray-200 rounded mb-2"></div>
+                        <div className="h-4 w-48 bg-gray-200 rounded mb-1"></div>
+                        <div className="h-3 w-32 bg-gray-200 rounded"></div>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-semibold text-gray-900 text-lg">{app.user}</p>
-                      <p className="text-sm text-gray-500">{app.service} Application</p>
-                      <p className="text-xs text-gray-400 mt-1">{app.date}</p>
-                    </div>
+                    <div className="h-8 w-24 bg-gray-200 rounded-full"></div>
                   </div>
-                  <div className="flex items-center space-x-4">
-                    <div className="text-right">
-                      <p className="font-bold text-gray-900 text-lg">{app.amount}</p>
-                      <span className={`inline-block px-4 py-2 rounded-full text-sm font-medium ${
-                        app.status === 'completed' ? 'bg-green-100 text-green-700' :
-                        app.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                        'bg-blue-100 text-blue-700'
-                      }`}>
-                        {app.status.replace('_', ' ').charAt(0).toUpperCase() + app.status.replace('_', ' ').slice(1)}
-                      </span>
-                    </div>
-                    <button className="p-2 hover:bg-gray-200 rounded-lg transition-colors">
-                      <Eye className="w-5 h-5 text-gray-600" />
-                    </button>
-                  </div>
+                ))
+              ) : displayApplications.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <FileText className="w-16 h-16 mx-auto mb-3 opacity-50" />
+                  <p className="text-lg font-medium">No applications found</p>
+                  <p className="text-sm mt-1">Applications will appear here once users start applying</p>
                 </div>
-              ))}
+              ) : (
+                displayApplications.map((app) => (
+                  <div
+                    key={app.id}
+                    className="flex items-center justify-between p-6 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                        app.status === 'accepted' ? 'bg-green-100' :
+                        (app.status === 'pending' || app.status === 'submitted') ? 'bg-yellow-100' : 
+                        app.status === 'rejected' ? 'bg-red-100' : 'bg-blue-100'
+                      }`}>
+                        {app.status === 'accepted' ? (
+                          <CheckCircle className="w-6 h-6 text-green-600" />
+                        ) : (app.status === 'pending' || app.status === 'submitted') ? (
+                          <Clock className="w-6 h-6 text-yellow-600" />
+                        ) : app.status === 'rejected' ? (
+                          <AlertCircle className="w-6 h-6 text-red-600" />
+                        ) : (
+                          <Activity className="w-6 h-6 text-blue-600" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900 text-lg">{app.profiles?.full_name || 'Unknown User'}</p>
+                        <p className="text-sm text-gray-500">{app['Job-Leads']?.jobTitle || 'Job Application'}</p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          {app['Job-Leads']?.companyName || 'Unknown Company'} • {getTimeAgo(app.applied_at)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-4">
+                      <div className="text-right">
+                        <span className={`inline-block px-4 py-2 rounded-full text-sm font-medium ${
+                          app.status === 'accepted' ? 'bg-green-100 text-green-700' :
+                          (app.status === 'pending' || app.status === 'submitted') ? 'bg-yellow-100 text-yellow-700' :
+                          app.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                          'bg-blue-100 text-blue-700'
+                        }`}>
+                          {app.status.charAt(0).toUpperCase() + app.status.slice(1)}
+                        </span>
+                      </div>
+                      <button className="p-2 hover:bg-gray-200 rounded-lg transition-colors">
+                        <Eye className="w-5 h-5 text-gray-600" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         )}
@@ -923,6 +1316,76 @@ export default function AdminDashboard() {
           </div>
         </div>
       </footer>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && userToDelete && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200]"
+            onClick={() => !deleting && setShowDeleteModal(false)}
+          />
+          <div
+            className="relative w-full max-w-md rounded-2xl shadow-2xl border backdrop-blur-md z-[201]"
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.95)',
+              borderColor: 'rgba(255, 255, 255, 0.3)'
+            }}
+          >
+            <div className="p-6">
+              <div className="flex items-center justify-center mb-4">
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
+                  <AlertCircle className="w-8 h-8 text-red-600" />
+                </div>
+              </div>
+              
+              <h3 className="text-2xl font-bold text-gray-900 text-center mb-3">
+                Delete User?
+              </h3>
+              
+              <p className="text-gray-600 text-center mb-2">
+                Are you sure you want to delete <strong>{userToDelete.full_name || userToDelete.email}</strong>?
+              </p>
+              
+              <p className="text-sm text-red-600 text-center mb-6">
+                This action cannot be undone. All user data including applications, documents, and payments will be permanently deleted.
+              </p>
+
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setUserToDelete(null);
+                  }}
+                  disabled={deleting}
+                  className="flex-1 px-6 py-3 rounded-xl font-semibold border transition-all duration-200 disabled:opacity-50"
+                  style={{ 
+                    borderColor: 'rgba(0, 50, 83, 0.3)', 
+                    color: 'rgba(0, 50, 83, 1)',
+                    backgroundColor: 'white'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteUser}
+                  disabled={deleting}
+                  className="flex-1 px-6 py-3 rounded-xl font-semibold text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ backgroundColor: 'rgba(187, 40, 44, 1)' }}
+                >
+                  {deleting ? (
+                    <span className="flex items-center justify-center">
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                      Deleting...
+                    </span>
+                  ) : (
+                    'Delete User'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
     </div>
   );

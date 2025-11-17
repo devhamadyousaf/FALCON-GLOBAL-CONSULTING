@@ -72,24 +72,38 @@ const Header = () => {
           {/* Desktop CTA Buttons / User Menu */}
           <div className="hidden lg:flex items-center space-x-4">
             {isAuthenticated ? (
-              <div className="relative">
-                <button
-                  onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="flex items-center space-x-3 px-4 py-2 rounded-full transition-all duration-200 border"
-                  style={{ 
-                    backgroundColor: 'rgba(0, 50, 83, 0.1)', 
-                    borderColor: 'rgba(0, 50, 83, 0.2)',
-                    '&:hover': { backgroundColor: 'rgba(0, 50, 83, 0.15)' }
-                  }}
-                >
-                  <img
-                    src={user.avatar}
-                    alt={user.name}
-                    className="w-8 h-8 rounded-full"
-                  />
-                  <span className="font-medium text-gray-700">{user.name}</span>
-                  <ChevronDown className="w-4 h-4 text-gray-600" />
-                </button>
+              user.requiresEmailConfirmation ? (
+                // Show "Verify Email" notice for unconfirmed users
+                <Link href="/verify-email">
+                  <button className="px-4 py-2 rounded-full font-semibold text-sm transition-all duration-300 border-2"
+                    style={{
+                      backgroundColor: 'rgba(251, 191, 36, 0.1)',
+                      borderColor: 'rgba(251, 191, 36, 0.6)',
+                      color: 'rgba(180, 83, 9, 1)'
+                    }}
+                  >
+                    ⚠️ Verify Your Email
+                  </button>
+                </Link>
+              ) : (
+                <div className="relative">
+                  <button
+                    onClick={() => setShowUserMenu(!showUserMenu)}
+                    className="flex items-center space-x-3 px-4 py-2 rounded-full transition-all duration-200 border"
+                    style={{
+                      backgroundColor: 'rgba(0, 50, 83, 0.1)',
+                      borderColor: 'rgba(0, 50, 83, 0.2)',
+                      '&:hover': { backgroundColor: 'rgba(0, 50, 83, 0.15)' }
+                    }}
+                  >
+                    <img
+                      src={user.avatar}
+                      alt={user.name}
+                      className="w-8 h-8 rounded-full"
+                    />
+                    <span className="font-medium text-gray-700">{user.name}</span>
+                    <ChevronDown className="w-4 h-4 text-gray-600" />
+                  </button>
 
                 {/* User Dropdown Menu */}
                 {showUserMenu && (
@@ -98,10 +112,31 @@ const Header = () => {
                       <p className="text-sm font-semibold text-gray-900">{user.name}</p>
                       <p className="text-xs text-gray-500 truncate">{user.email}</p>
                     </div>
-                    <button className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2">
-                      <User className="w-4 h-4" />
-                      <span>Profile</span>
-                    </button>
+
+                    {/* Show Dashboard link based on role and onboarding status */}
+                    {user.role === 'admin' ? (
+                      <Link href="/dashboard/admin">
+                        <button className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2">
+                          <User className="w-4 h-4" />
+                          <span>Admin Dashboard</span>
+                        </button>
+                      </Link>
+                    ) : user.onboardingComplete ? (
+                      <Link href="/dashboard/customer">
+                        <button className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2">
+                          <User className="w-4 h-4" />
+                          <span>Customer Dashboard</span>
+                        </button>
+                      </Link>
+                    ) : (
+                      <Link href="/onboarding-new">
+                        <button className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2">
+                          <User className="w-4 h-4" />
+                          <span>Complete Onboarding</span>
+                        </button>
+                      </Link>
+                    )}
+
                     <button
                       onClick={() => {
                         setShowUserMenu(false);
@@ -114,7 +149,8 @@ const Header = () => {
                     </button>
                   </div>
                 )}
-              </div>
+                </div>
+              )
             ) : (
               <>
                 {/* Login Button - White bg, dark blue text, red border */}
@@ -226,13 +262,39 @@ const Header = () => {
                       <p className="text-xs text-gray-500">{user.email}</p>
                     </div>
                   </div>
-                  <button className="w-full text-left font-medium py-2 flex items-center space-x-2"
-                          style={{ color: 'rgba(0, 50, 83, 0.8)' }}
-                          onMouseEnter={(e) => e.target.style.color = 'rgba(0, 50, 83, 1)'}
-                          onMouseLeave={(e) => e.target.style.color = 'rgba(0, 50, 83, 0.8)'}>
-                    <User className="w-4 h-4" />
-                    <span>Profile</span>
-                  </button>
+
+                  {/* Show Dashboard link based on role and onboarding status */}
+                  {user.role === 'admin' ? (
+                    <Link href="/dashboard/admin">
+                      <button className="w-full text-left font-medium py-2 flex items-center space-x-2"
+                              style={{ color: 'rgba(0, 50, 83, 0.8)' }}
+                              onMouseEnter={(e) => e.target.style.color = 'rgba(0, 50, 83, 1)'}
+                              onMouseLeave={(e) => e.target.style.color = 'rgba(0, 50, 83, 0.8)'}>
+                        <User className="w-4 h-4" />
+                        <span>Admin Dashboard</span>
+                      </button>
+                    </Link>
+                  ) : user.onboardingComplete ? (
+                    <Link href="/dashboard/customer">
+                      <button className="w-full text-left font-medium py-2 flex items-center space-x-2"
+                              style={{ color: 'rgba(0, 50, 83, 0.8)' }}
+                              onMouseEnter={(e) => e.target.style.color = 'rgba(0, 50, 83, 1)'}
+                              onMouseLeave={(e) => e.target.style.color = 'rgba(0, 50, 83, 0.8)'}>
+                        <User className="w-4 h-4" />
+                        <span>Customer Dashboard</span>
+                      </button>
+                    </Link>
+                  ) : (
+                    <Link href="/onboarding-new">
+                      <button className="w-full text-left font-medium py-2 flex items-center space-x-2"
+                              style={{ color: 'rgba(0, 50, 83, 0.8)' }}
+                              onMouseEnter={(e) => e.target.style.color = 'rgba(0, 50, 83, 1)'}
+                              onMouseLeave={(e) => e.target.style.color = 'rgba(0, 50, 83, 0.8)'}>
+                        <User className="w-4 h-4" />
+                        <span>Complete Onboarding</span>
+                      </button>
+                    </Link>
+                  )}
                   <button
                     onClick={() => {
                       setIsMenuOpen(false);

@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import { Globe, Mail, Lock, User, Phone, MapPin, ArrowRight, Check } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import Toast from '../components/Toast';
+import LoadingButton from '../components/LoadingButton';
 
 export default function SignUp() {
   const router = useRouter();
@@ -31,6 +32,15 @@ export default function SignUp() {
     setLoading(true);
     try {
       const result = await loginWithGoogle();
+
+      // Check if it's a redirect (Google OAuth will redirect the page)
+      if (result.redirecting) {
+        // Don't show error - user is being redirected to Google
+        setToast({ show: true, message: 'Redirecting to Google...', type: 'success' });
+        // The page will redirect, so we don't need to do anything else
+        return;
+      }
+
       if (result.success) {
         if (result.needsOnboarding) {
           // Redirect to new onboarding flow for new Google users
@@ -40,8 +50,12 @@ export default function SignUp() {
           setToast({ show: true, message: 'Welcome back, ' + result.user.name, type: 'success' });
           setTimeout(() => router.push('/'), 1500);
         }
+      } else if (result.error) {
+        setToast({ show: true, message: result.error, type: 'error' });
+        setLoading(false);
       }
     } catch (error) {
+      console.error('Google signup error:', error);
       setToast({ show: true, message: 'Sign up failed. Please try again.', type: 'error' });
       setLoading(false);
     }
@@ -65,11 +79,38 @@ export default function SignUp() {
     try {
       const result = await signup(formData);
       if (result.success) {
+        // Check if email confirmation is required (no session means email confirmation needed)
+        if (!result.session) {
+          setToast({
+            show: true,
+            message: 'Account created! Redirecting to email verification page...',
+            type: 'info',
+            duration: 2000
+          });
+          // Redirect to verify-email page after 2 seconds
+          setTimeout(() => router.push('/verify-email'), 2000);
+          return;
+        }
+
+        // Email confirmed or Google OAuth - proceed to onboarding
         setToast({ show: true, message: 'Account created successfully! Welcome to Falcon Global Consulting, ' + result.user.name, type: 'success' });
         setTimeout(() => router.push('/onboarding-new'), 1500);
       }
     } catch (error) {
-      setToast({ show: true, message: 'Sign up failed. Please try again.', type: 'error' });
+      console.error('Signup error:', error);
+
+      let errorMessage = 'Sign up failed. Please try again.';
+      if (error.message) {
+        if (error.message.includes('already registered') || error.message.includes('already exists')) {
+          errorMessage = 'An account with this email already exists. Please login instead.';
+        } else if (error.message.includes('Invalid email')) {
+          errorMessage = 'Please enter a valid email address.';
+        } else if (error.message.includes('Password')) {
+          errorMessage = 'Password must be at least 8 characters long.';
+        }
+      }
+
+      setToast({ show: true, message: errorMessage, type: 'error' });
       setLoading(false);
     }
   };
@@ -101,8 +142,8 @@ export default function SignUp() {
             <p className="text-gray-600">Join Falcon Global Consulting today</p>
           </div>
 
-          {/* Google Sign Up Button */}
-          <button
+          {/* Google Sign Up Button (uses LoadingButton) */}
+          <LoadingButton
             onClick={handleGoogleSignUp}
             disabled={loading}
             className="w-full flex items-center justify-center space-x-3 bg-white border-2 border-gray-200 rounded-xl py-3 px-4 font-medium text-gray-700 hover:border-blue-500 hover:bg-blue-50 transition-all duration-300 mb-6 group"
@@ -114,7 +155,7 @@ export default function SignUp() {
               <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
             </svg>
             <span>Continue with Google</span>
-          </button>
+          </LoadingButton>
 
           {/* Divider */}
           <div className="relative mb-6">

@@ -1,35 +1,35 @@
-import { Star, Quote, User, Building } from 'lucide-react';
+import { Play, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useState } from 'react';
 
 const Testimonials = () => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+
   const testimonials = [
     {
-      name: 'Ananya Sharma',
-      title: 'Relocated Professional',
-      company: 'Tech Consultant',
-      image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=150&q=80',
-      rating: 5,
-      text: 'Falcon Global Consulting made my move abroad stress-free. Their team handled everything from documentation to settling in. The level of support and attention to detail was exceptional.',
-      gradient: 'from-blue-500 to-indigo-600'
+      videoSrc: '/testimonial_1.mp4',
+      thumbnail: '/testimonial_1.mp4'
     },
     {
-      name: 'James Mitchell',
-      title: 'HR Director',
-      company: 'Global Solutions Inc.',
-      image: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=150&h=150&q=80',
-      rating: 5,
-      text: 'We found the right talent in record time thanks to Falcon\'s recruitment services. Professional, reliable, and efficient. They understand our business needs perfectly.',
-      gradient: 'from-red-500 to-pink-600'
-    },
-    {
-      name: 'Maria Rodriguez',
-      title: 'Business Owner',
-      company: 'InnovateCorp',
-      image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=150&h=150&q=80',
-      rating: 5,
-      text: 'Their business consulting services helped us expand into three new markets successfully. The strategic insights and practical support were invaluable for our growth.',
-      gradient: 'from-green-500 to-emerald-600'
+      videoSrc: '/testimonial_2.mp4',
+      thumbnail: '/testimonial_2.mp4'
     }
   ];
+
+  const nextSlide = () => {
+    setIsPlaying(false);
+    setCurrentIndex((prev) => (prev + 1) % testimonials.length);
+  };
+
+  const prevSlide = () => {
+    setIsPlaying(false);
+    setCurrentIndex((prev) => (prev - 1 + testimonials.length) % testimonials.length);
+  };
+
+  const goToSlide = (index) => {
+    setIsPlaying(false);
+    setCurrentIndex(index);
+  };
 
   return (
     <section className="py-12 md:py-16 lg:py-20 desert-sand-bg-subtle">
@@ -47,58 +47,92 @@ const Testimonials = () => {
           </p>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          {testimonials.map((testimonial, index) => (
-            <div
-              key={index}
-              className="group relative bg-white rounded-3xl p-8 shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 border border-gray-100"
-            >
-              {/* Quote Icon */}
-              <div className="absolute -top-4 left-8">
-                <div className={`w-12 h-12 bg-gradient-to-r ${testimonial.gradient} rounded-2xl flex items-center justify-center shadow-lg`}>
-                  <Quote className="w-6 h-6 text-white" />
+        {/* Carousel Container */}
+        <div className="relative w-64 md:w-72 mx-auto">
+          {/* Video Carousel */}
+          <div className="relative bg-white rounded-2xl shadow-2xl overflow-hidden">
+            {/* Video Container - Portrait Ratio (9:16) */}
+            <div className="relative bg-black" style={{ aspectRatio: '9/16' }}>
+              <video
+                key={currentIndex}
+                ref={(el) => {
+                  if (el && isPlaying) {
+                    el.play();
+                  }
+                }}
+                className="w-full h-full object-cover"
+                controls={isPlaying}
+                poster={testimonials[currentIndex].thumbnail}
+                onEnded={() => setIsPlaying(false)}
+                playsInline
+              >
+                <source src={testimonials[currentIndex].videoSrc} type="video/mp4" />
+                Your browser does not support the video tag.
+              </video>
+
+              {/* Play Button Overlay */}
+              {!isPlaying && (
+                <div
+                  className="absolute inset-0 flex items-center justify-center bg-black/20 cursor-pointer group hover:bg-black/30 transition-all duration-300"
+                  onClick={() => setIsPlaying(true)}
+                >
+                  <div className="w-20 h-20 md:w-24 md:h-24 bg-white rounded-full flex items-center justify-center shadow-2xl transform group-hover:scale-110 transition-all duration-300">
+                    <Play className="w-10 h-10 md:w-12 md:h-12 ml-1 fill-current" style={{ color: 'rgba(0, 50, 83, 1)' }} />
+                  </div>
                 </div>
-              </div>
-
-              {/* Rating */}
-              <div className="flex items-center space-x-1 mb-6 mt-4">
-                {[...Array(testimonial.rating)].map((_, i) => (
-                  <Star key={i} className="w-5 h-5 text-yellow-400 fill-current" />
-                ))}
-              </div>
-
-              {/* Testimonial Text */}
-              <p className="text-gray-700 leading-relaxed mb-8 text-lg">
-                "{testimonial.text}"
-              </p>
-
-              {/* Client Info */}
-              <div className="flex items-center space-x-4">
-                <div className="relative">
-                  <img
-                    src={testimonial.image}
-                    alt={testimonial.name}
-                    className="w-14 h-14 rounded-2xl object-cover"
-                  />
-                  <div className={`absolute inset-0 bg-gradient-to-r ${testimonial.gradient} opacity-20 rounded-2xl`} />
-                </div>
-                <div>
-                  <h4 className="font-bold text-gray-900 text-lg">
-                    {testimonial.name}
-                  </h4>
-                  <p className="text-gray-600 font-medium">
-                    {testimonial.title}
-                  </p>
-                  <p className="text-gray-500 text-sm">
-                    {testimonial.company}
-                  </p>
-                </div>
-              </div>
-
-              {/* Hover Gradient Background */}
-              <div className={`absolute inset-0 bg-gradient-to-br ${testimonial.gradient} opacity-0 group-hover:opacity-5 rounded-3xl transition-opacity duration-500`} />
+              )}
             </div>
-          ))}
+
+            {/* Navigation Arrows */}
+            {!isPlaying && testimonials.length > 1 && (
+              <>
+                <button
+                  onClick={prevSlide}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-lg transition-all duration-300 hover:scale-110 z-10"
+                  style={{ color: 'rgba(0, 50, 83, 1)' }}
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </button>
+                <button
+                  onClick={nextSlide}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-lg transition-all duration-300 hover:scale-110 z-10"
+                  style={{ color: 'rgba(0, 50, 83, 1)' }}
+                >
+                  <ChevronRight className="w-6 h-6" />
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Dots Navigation */}
+          {testimonials.length > 1 && (
+            <div className="flex justify-center items-center space-x-3 mt-6">
+              {testimonials.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => goToSlide(index)}
+                  className={`transition-all duration-300 rounded-full ${
+                    index === currentIndex
+                      ? 'w-12 h-3'
+                      : 'w-3 h-3 hover:scale-125'
+                  }`}
+                  style={{
+                    backgroundColor: index === currentIndex ? 'rgba(0, 50, 83, 1)' : 'rgba(0, 50, 83, 0.3)'
+                  }}
+                  aria-label={`Go to testimonial ${index + 1}`}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Counter */}
+          {testimonials.length > 1 && (
+            <div className="text-center mt-4">
+              <p className="text-sm text-gray-500 font-medium">
+                {currentIndex + 1} / {testimonials.length}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Stats Section */}

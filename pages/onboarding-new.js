@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import {
@@ -16,9 +16,10 @@ import Modal from '../components/Modal';
 
 export default function OnboardingNew() {
   const router = useRouter();
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, logout, reloadUserProfile } = useAuth();
   const {
     onboardingData,
+    loading: contextLoading,
     setRelocationType,
     updatePersonalDetails,
     updateVisaCheck,
@@ -78,47 +79,150 @@ export default function OnboardingNew() {
   const [callDate, setCallDate] = useState('');
   const [callTime, setCallTime] = useState('');
 
-  // Redirect if not authenticated
+  // Redirect if not authenticated or email not confirmed
   useEffect(() => {
     if (!isAuthenticated) {
       router.push('/login');
+      return;
     }
-  }, [isAuthenticated, router]);
 
-  // Load saved data
+    // Block access for unconfirmed email/password users
+    if (user?.requiresEmailConfirmation) {
+      console.log('⚠️ Email not confirmed, redirecting to verify-email');
+      router.push('/verify-email');
+      return;
+    }
+  }, [isAuthenticated, user, router]);
+
+  // Single initialization effect - runs once when data loads
   useEffect(() => {
-    if (onboardingData) {
-      if (onboardingData.personalDetails) {
-        setPersonalForm({
-          fullName: onboardingData.personalDetails.fullName || '',
-          email: onboardingData.personalDetails.email || '',
-          telephone: onboardingData.personalDetails.telephone || '',
-          street: onboardingData.personalDetails.address?.street || '',
-          city: onboardingData.personalDetails.address?.city || '',
-          state: onboardingData.personalDetails.address?.state || '',
-          zip: onboardingData.personalDetails.address?.zip || '',
-          country: onboardingData.personalDetails.address?.country || ''
-        });
-      }
-      if (onboardingData.visaCheck) {
-        setVisaForm(onboardingData.visaCheck);
-      }
-      setCurrentMainStep(onboardingData.currentStep || 0);
-    }
-  }, []);
+    if (contextLoading) return; // Wait for data to load
+    if (!user?.id) return;
 
-  // Check if user can access dashboard
+    console.log('🔄 Initializing onboarding page...');
+    console.log('📂 Current step from database:', onboardingData.currentStep);
+    console.log('📂 Completed steps:', onboardingData.completedSteps);
+    console.log('📂 Relocation type:', onboardingData.relocationType);
+    console.log('📂 User onboardingComplete:', user?.onboardingComplete);
+
+    // Check if onboarding is complete - redirect to dashboard
+    const step5Complete = onboardingData.completedSteps?.some(s => {
+      const step = typeof s === 'string' ? parseInt(s, 10) : s;
+      return step === 5;
+    });
+    
+    // ONLY redirect if BOTH profile says complete AND step 5 is done
+    if (user?.onboardingComplete === true && step5Complete) {
+      console.log('✅ Onboarding fully complete - redirecting to dashboard');
+      router.replace('/dashboard/customer'); // Use replace to avoid back button issues
+      return;
+    }
+
+    // Restore step from database/localStorage
+    if (onboardingData.currentStep !== undefined && onboardingData.currentStep !== null) {
+      console.log('🔄 Restoring step:', onboardingData.currentStep);
+      setCurrentMainStep(onboardingData.currentStep);
+    }
+
+    // Pre-fill forms with existing data
+    const hasExistingData = onboardingData.personalDetails?.email || onboardingData.personalDetails?.fullName;
+    
+    if (hasExistingData) {
+      console.log('📂 Loading saved personal details');
+      setPersonalForm({
+        fullName: onboardingData.personalDetails.fullName || '',
+        email: onboardingData.personalDetails.email || '',
+        telephone: onboardingData.personalDetails.telephone || '',
+        street: onboardingData.personalDetails.address?.street || '',
+        city: onboardingData.personalDetails.address?.city || '',
+        state: onboardingData.personalDetails.address?.state || '',
+        zip: onboardingData.personalDetails.address?.zip || '',
+        country: onboardingData.personalDetails.address?.country || ''
+      });
+    } else if (user) {
+      console.log('📂 Pre-filling with user profile');
+      setPersonalForm({
+        fullName: user.name || '',
+        email: user.email || '',
+        telephone: user.phone || '',
+        street: '',
+        city: '',
+        state: '',
+        zip: '',
+        country: user.country || ''
+      });
+    }
+    
+    if (onboardingData.visaCheck) {
+      setVisaForm(onboardingData.visaCheck);
+    }
+    if (onboardingData.callScheduleDetails) {
+      setCallDate(onboardingData.callScheduleDetails.date || '');
+      setCallTime(onboardingData.callScheduleDetails.time || '');
+    }
+  }, [contextLoading]); // Only run once when loading completes
+
+  // Helper function to add timeout to async operations
+  const withTimeout = (promise, timeoutMs = 30000, operationName = 'Operation') => {
+    return Promise.race([
+      promise,
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error(`${operationName} timed out after ${timeoutMs/1000} seconds`)), timeoutMs)
+      )
+    ]);
+  };
+
+  // Safeguard: If GCC user somehow ends up on visa check step, skip to payment
+  // This runs whenever the step or relocation type changes
   useEffect(() => {
-    if (canAccessDashboard()) {
-      router.push('/dashboard/customer');
+    if (onboardingData.relocationType === 'gcc' && (currentMainStep === 2 || currentMainStep === 2.5)) {
+      console.log('⚠️ SAFEGUARD TRIGGERED: GCC user on visa check step - redirecting to payment');
+      console.log('⚠️ Current step:', currentMainStep);
+      console.log('⚠️ Relocation type:', onboardingData.relocationType);
+      console.log('⚠️ This should NEVER happen for GCC users');
+      setCurrentMainStep(3);
+      setCurrentStep(3);
     }
-  }, [onboardingData, canAccessDashboard, router]);
+  }, [currentMainStep, onboardingData.relocationType]);
 
-  const handleRelocationTypeSelect = (type) => {
-    setRelocationType(type);
-    markStepCompleted(0);
-    setCurrentMainStep(1);
-    setCurrentStep(1);
+  const handleRelocationTypeSelect = async (type) => {
+    console.log('🌍 Relocation type selected:', type);
+    console.log('🔍 Current relocationType in context:', onboardingData.relocationType);
+
+    // Check if user is re-selecting the same type they already chose
+    const isSameSelection = onboardingData.relocationType === type;
+
+    if (isSameSelection) {
+      console.log('✅ Same selection - just moving forward to step 1');
+      setCurrentMainStep(1);
+      await setCurrentStep(1);
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Update context state AND save to database (only if it's a NEW selection)
+      console.log('💾 New selection - Calling setRelocationType...');
+      const updatedData = await setRelocationType(type);
+
+      console.log('✅ setRelocationType completed');
+
+      // Pass the updated data to markStepCompleted to avoid stale state
+      const completedData = await markStepCompleted(0, updatedData);
+
+      console.log('✅ Relocation type saved successfully:', type);
+      console.log('✅ Moving to step 1 (Personal Details)');
+
+      // Move to next step - pass the completed data to avoid stale state
+      setCurrentMainStep(1);
+      await setCurrentStep(1, completedData);
+    } catch (error) {
+      console.error('❌ Error setting relocation type:', error);
+      setToast({ message: 'Failed to save selection. Please try again.', type: 'error' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const validatePersonalDetails = () => {
@@ -142,110 +246,218 @@ export default function OnboardingNew() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handlePersonalDetailsSubmit = () => {
+  const handlePersonalDetailsSubmit = async () => {
     if (!validatePersonalDetails()) {
       return;
     }
 
-    updatePersonalDetails({
+    // CRITICAL CHECK: Make sure relocation type is set before proceeding
+    let relocType = onboardingData.relocationType;
+
+    console.log('🔍 relocationType from context:', relocType);
+
+    if (!relocType || (relocType !== 'gcc' && relocType !== 'europe')) {
+      console.error('🚨 CRITICAL: Relocation type is not set or invalid!');
+      console.error('🚨 This should NOT happen - user should not be on step 1 without selecting region');
+      setToast({
+        message: 'Please select your destination (GCC or Europe) first.',
+        type: 'error'
+      });
+      setCurrentMainStep(0); // Force them back to step 0
+      return;
+    }
+
+    console.log('📝 Saving personal details to database...');
+    console.log('✅ Relocation type validated:', relocType);
+    console.log('📋 Personal form data being saved:', {
       fullName: personalForm.fullName,
       email: personalForm.email,
       telephone: personalForm.telephone,
-      address: {
-        street: personalForm.street,
-        city: personalForm.city,
-        state: personalForm.state,
-        zip: personalForm.zip,
-        country: personalForm.country
-      }
+      street: personalForm.street,
+      city: personalForm.city,
+      state: personalForm.state,
+      zip: personalForm.zip,
+      country: personalForm.country
     });
+    
+    console.log('⏳ Setting loading to true...');
+    setLoading(true);
 
-    markStepCompleted(1);
+    try {
+      console.log('🔄 Starting database save process...');
 
-    // If GCC, skip visa check
-    if (onboardingData.relocationType === 'gcc') {
-      setCurrentMainStep(3); // Go to payment
-      setCurrentStep(3);
-    } else {
-      setCurrentMainStep(2); // Go to visa check
-      setCurrentStep(2);
+      // Save to database immediately
+      const detailsToSave = {
+        fullName: personalForm.fullName,
+        email: personalForm.email,
+        telephone: personalForm.telephone,
+        address: {
+          street: personalForm.street,
+          city: personalForm.city,
+          state: personalForm.state,
+          zip: personalForm.zip,
+          country: personalForm.country
+        }
+      };
+
+      console.log('💾 Calling updatePersonalDetails with:', JSON.stringify(detailsToSave, null, 2));
+
+      // Remove timeout wrapper - let it complete naturally
+      const updatedData = await updatePersonalDetails(detailsToSave);
+
+      console.log('✅ updatePersonalDetails completed, marking step 1 as complete...');
+
+      // Pass the updated data to markStepCompleted to avoid stale state
+      const completedData = await markStepCompleted(1, updatedData);
+
+      console.log('✅ Personal details saved to database successfully');
+      console.log('📊 Completed data:', completedData);
+
+      // Move to next step based on relocation type
+      if (relocType === 'gcc') {
+        console.log('➡️ GCC selected - going directly to payment (skipping visa check)');
+        console.log('➡️ Setting currentMainStep to 3 (Payment)');
+        await setCurrentStep(3, completedData); // Update context current step
+
+        // Turn off loading BEFORE state update to prevent UI freeze
+        setLoading(false);
+
+        // Small delay to ensure state is synced
+        await new Promise(resolve => setTimeout(resolve, 100));
+        setCurrentMainStep(3); // Go to payment
+      } else if (relocType === 'europe') {
+        console.log('➡️ Europe selected - going to visa check');
+        await setCurrentStep(2, completedData); // Update context current step
+
+        // Turn off loading BEFORE state update to prevent UI freeze
+        setLoading(false);
+
+        // Small delay to ensure state is synced
+        await new Promise(resolve => setTimeout(resolve, 100));
+        setCurrentMainStep(2); // Go to visa check
+        setVisaQuestionStep(0); // Reset visa questions to start
+      }
+    } catch (error) {
+      console.error('❌ Error saving personal details:', error);
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        stack: error.stack
+      });
+
+      setLoading(false);
+
+      setToast({
+        message: `Failed to save personal details: ${error.message || 'Unknown error'}. Please try again.`,
+        type: 'error'
+      });
     }
   };
 
-  const handleVisaQuestionNext = () => {
+  const handleVisaQuestionNext = async () => {
     if (visaQuestionStep < 8) {
       setVisaQuestionStep(visaQuestionStep + 1);
     } else {
       // All questions answered, calculate eligibility
-      updateVisaCheck(visaForm);
+      console.log('📝 Saving visa check answers to database...');
+      
+      // Save visa check data to database
+      const updatedData = await updateVisaCheck(visaForm);
+      await markStepCompleted(2, updatedData);
+      
       const result = calculateVisaEligibility(visaForm);
-      setVisaEligibility(result.eligible ? 'eligible' : 'not_eligible');
-      markStepCompleted(2);
+      await setVisaEligibility(result.eligible ? 'eligible' : 'not_eligible');
+      
+      console.log('✅ Visa check saved to database');
       setCurrentMainStep(2.5); // Show result screen
     }
   };
 
-  const handleVisaQuestionBack = () => {
+  const handleVisaQuestionBack = async () => {
     if (visaQuestionStep > 0) {
       setVisaQuestionStep(visaQuestionStep - 1);
     } else {
+      // Save current step before navigating back
+      await setCurrentStep(1, onboardingData);
       setCurrentMainStep(1);
     }
   };
 
-  const proceedToPayment = () => {
-    setCurrentMainStep(3);
-    setCurrentStep(3);
+  const proceedToPayment = async () => {
+    setLoading(true);
+    try {
+      await setCurrentStep(3);
+      setCurrentMainStep(3);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handlePaymentSuccess = async (planName) => {
     setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 2000));
 
-    // Map plan names to prices
-    const planPrices = {
-      'silver': 299,
-      'gold': 699,
-      'diamond': 1599,
-      'diamond+': 0 // Negotiable
-    };
+    try {
+      // Map plan names to prices
+      const planPrices = {
+        'silver': 299,
+        'gold': 699,
+        'diamond': 1599,
+        'diamond+': 0 // Negotiable
+      };
 
-    const amount = planPrices[planName] || 0;
+      const amount = planPrices[planName] || 0;
 
-    completePayment({
-      plan: planName,
-      amount: amount,
-      currency: 'USD',
-      timestamp: new Date().toISOString(),
-      transactionId: 'TXN_' + Math.random().toString(36).substr(2, 9).toUpperCase()
-    });
+      console.log('💳 Saving payment details to database...');
 
-    markStepCompleted(3);
-    setLoading(false);
-    setToast({
-      message: `Payment successful! ${planName.charAt(0).toUpperCase() + planName.slice(1)} plan selected.`,
-      type: 'success'
-    });
-    setTimeout(() => {
+      // Save payment to database immediately
+      const updatedData = await completePayment({
+        plan: planName,
+        amount: amount,
+        currency: 'USD',
+        timestamp: new Date().toISOString(),
+        transactionId: 'TXN_' + Math.random().toString(36).substr(2, 9).toUpperCase()
+      });
+
+      const completedData = await markStepCompleted(3, updatedData);
+
+      console.log('✅ Payment saved to database');
+
+      setToast({
+        message: `Payment successful! ${planName.charAt(0).toUpperCase() + planName.slice(1)} plan selected.`,
+        type: 'success'
+      });
+
+      await setCurrentStep(4, completedData);
       setCurrentMainStep(4);
-      setCurrentStep(4);
-    }, 1500);
+    } catch (error) {
+      console.error('Error processing payment:', error);
+      setToast({ message: 'Payment processing failed. Please try again.', type: 'error' });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleScheduleCall = () => {
+  const handleScheduleCall = async () => {
     if (!callDate || !callTime) {
       setToast({ message: 'Please select both date and time for your onboarding call', type: 'error' });
       return;
     }
 
-    scheduleCall({
+    console.log('📅 Saving call schedule to database...');
+    
+    // Save call schedule to database immediately
+    const updatedData = await scheduleCall({
       date: callDate,
       time: callTime,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       scheduledAt: new Date().toISOString()
     });
 
-    markStepCompleted(4);
+    await markStepCompleted(4, updatedData);
+    
+    console.log('✅ Call schedule saved to database');
+    
     setToast({ message: 'Call scheduled successfully!', type: 'success' });
     setTimeout(() => {
       setCurrentMainStep(5);
@@ -254,6 +466,7 @@ export default function OnboardingNew() {
   };
 
   const handleDocumentUpload = (docType, file) => {
+    console.log('📄 Document selected:', { type: docType, fileName: file?.name, size: file?.size });
     setDocuments(prev => ({
       ...prev,
       [docType]: file
@@ -266,51 +479,206 @@ export default function OnboardingNew() {
       return;
     }
 
-    setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    uploadDocuments(documents);
-    markStepCompleted(5);
-    setLoading(false);
-
-    setModal({
-      title: 'Congratulations!',
-      message: 'Your onboarding is complete.\n\nRedirecting to dashboard...',
-      type: 'success',
-      confirmText: 'Go to Dashboard',
-      onConfirm: () => router.push('/dashboard/customer')
+    console.log('📤 Starting document upload...');
+    console.log('Documents to upload:', {
+      passport: documents.passport?.name,
+      certificates: documents.educationalCertificates?.length,
+      experience: documents.experienceLetters?.length,
+      jobOffer: documents.jobOffer?.name
     });
+
+    setLoading(true);
+
+    try {
+      // Import storage utility
+      const { uploadDocument, STORAGE_BUCKETS, DOCUMENT_TYPES } = await import('../lib/storage');
+
+      const uploadResults = {
+        passport: null,
+        educationalCertificates: [],
+        experienceLetters: [],
+        jobOffer: null
+      };
+
+      // Upload passport (required)
+      if (documents.passport) {
+        console.log('⬆️ Uploading passport...');
+        const passportResult = await uploadDocument(
+          documents.passport,
+          user.id,
+          DOCUMENT_TYPES.PASSPORT,
+          STORAGE_BUCKETS.DOCUMENTS
+        );
+
+        if (passportResult.success) {
+          console.log('✅ Passport uploaded successfully:', passportResult.filePath);
+          uploadResults.passport = passportResult.filePath;
+        } else {
+          console.error('❌ Passport upload failed:', passportResult.error);
+          setToast({ message: 'Failed to upload passport: ' + passportResult.error, type: 'error' });
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Upload certificates (optional)
+      if (documents.educationalCertificates && documents.educationalCertificates.length > 0) {
+        console.log('⬆️ Uploading certificates...');
+        for (const cert of documents.educationalCertificates) {
+          const certResult = await uploadDocument(
+            cert,
+            user.id,
+            DOCUMENT_TYPES.CERTIFICATE,
+            STORAGE_BUCKETS.DOCUMENTS
+          );
+          if (certResult.success) {
+            console.log('✅ Certificate uploaded:', cert.name);
+            uploadResults.educationalCertificates.push(certResult.filePath);
+          } else {
+            console.log('❌ Certificate failed:', cert.name, certResult.error);
+          }
+        }
+      }
+
+      // Upload experience letters (optional)
+      if (documents.experienceLetters && documents.experienceLetters.length > 0) {
+        console.log('⬆️ Uploading experience letters...');
+        for (const exp of documents.experienceLetters) {
+          const expResult = await uploadDocument(
+            exp,
+            user.id,
+            DOCUMENT_TYPES.EXPERIENCE,
+            STORAGE_BUCKETS.DOCUMENTS
+          );
+          if (expResult.success) {
+            console.log('✅ Experience uploaded:', exp.name);
+            uploadResults.experienceLetters.push(expResult.filePath);
+          } else {
+            console.log('❌ Experience failed:', exp.name, expResult.error);
+          }
+        }
+      }
+
+      // Upload job offer (optional)
+      if (documents.jobOffer) {
+        console.log('⬆️ Uploading job offer...');
+        const jobOfferResult = await uploadDocument(
+          documents.jobOffer,
+          user.id,
+          DOCUMENT_TYPES.JOB_OFFER,
+          STORAGE_BUCKETS.DOCUMENTS
+        );
+        if (jobOfferResult.success) {
+          console.log('✅ Job offer uploaded:', documents.jobOffer.name);
+          uploadResults.jobOffer = jobOfferResult.filePath;
+        } else {
+          console.log('❌ Job offer failed:', documents.jobOffer.name, jobOfferResult.error);
+        }
+      }
+
+      console.log('✅ All documents uploaded successfully!');
+
+      // Save document metadata to database (file paths, not file objects)
+      console.log('💾 Saving document metadata to database...');
+
+      const updatedData = await uploadDocuments(uploadResults);
+      await markStepCompleted(5, updatedData);
+
+      console.log('✅ All data saved to database!');
+      console.log('🔄 Reloading user profile to check onboarding status...');
+
+      // Reload user profile to get updated onboarding_complete flag
+      if (reloadUserProfile) {
+        await reloadUserProfile();
+      }
+
+      // Wait a moment for profile to update
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      setLoading(false);
+
+      setToast({
+        message: 'Onboarding complete! Redirecting to dashboard...',
+        type: 'success',
+        duration: 2000
+      });
+
+      // Auto-redirect after 2 seconds
+      setTimeout(() => {
+        window.location.href = '/dashboard/customer';
+      }, 2000);
+
+    } catch (error) {
+      console.error('❌ Document upload error:', error);
+      setToast({ message: 'Document upload failed: ' + error.message, type: 'error' });
+      setLoading(false);
+    }
   };
 
   if (!user) {
     return null;
   }
 
-  // Calculate progress
-  const getStepName = () => {
-    if (currentMainStep === 0) return 'Choose Destination';
-    if (currentMainStep === 1) return 'Personal Details';
-    if (currentMainStep === 2) return 'Visa Check';
-    if (currentMainStep === 2.5) return 'Visa Result';
-    if (currentMainStep === 3) return 'Payment';
-    if (currentMainStep === 4) return 'Schedule Call';
-    if (currentMainStep === 5) return 'Upload Documents';
-    return '';
-  };
-
   const getTotalSteps = () => {
-    return onboardingData.relocationType === 'gcc' ? 5 : 6;
+    // ONLY return total if we have a valid relocation type selected
+    if (onboardingData.relocationType === 'gcc') return 5;
+    if (onboardingData.relocationType === 'europe') return 6;
+    return 6; // Default to Europe flow if not selected yet
   };
 
   const getCurrentStepNumber = () => {
+    const isGCC = onboardingData.relocationType === 'gcc';
+    const isEurope = onboardingData.relocationType === 'europe';
+
+    // Step 0: Destination Selection
     if (currentMainStep === 0) return 1;
+
+    // Step 1: Personal Details
     if (currentMainStep === 1) return 2;
-    if (currentMainStep === 2) return 3;
-    if (currentMainStep === 2.5) return 3;
-    if (currentMainStep === 3) return onboardingData.relocationType === 'gcc' ? 3 : 4;
-    if (currentMainStep === 4) return onboardingData.relocationType === 'gcc' ? 4 : 5;
-    if (currentMainStep === 5) return onboardingData.relocationType === 'gcc' ? 5 : 6;
+
+    // Step 2/2.5: Visa Check (ONLY for Europe - GCC should NEVER be here)
+    if (currentMainStep === 2 || currentMainStep === 2.5) {
+      if (isGCC) {
+        // GCC users should NEVER be on visa check - something is wrong
+        console.error('🚨 GCC user on visa check step - this should not happen!');
+        return 2; // Show step 2 to avoid confusion
+      }
+      return isEurope ? 3 : 2;
+    }
+
+    // Step 3: Payment
+    if (currentMainStep === 3) {
+      return isGCC ? 3 : (isEurope ? 4 : 3);
+    }
+
+    // Step 4: Call Scheduling
+    if (currentMainStep === 4) {
+      return isGCC ? 4 : (isEurope ? 5 : 4);
+    }
+
+    // Step 5: Document Upload
+    if (currentMainStep === 5) {
+      return isGCC ? 5 : (isEurope ? 6 : 5);
+    }
+
     return 1;
+  };
+
+  const getStepName = () => {
+    const isGCC = onboardingData.relocationType === 'gcc';
+
+    if (currentMainStep === 0) return 'Destination';
+    if (currentMainStep === 1) return 'Personal Details';
+
+    // For GCC users, step 2 should NEVER show "Visa Check"
+    if (currentMainStep === 2 || currentMainStep === 2.5) {
+      return isGCC ? 'Payment' : 'Visa Check';
+    }
+
+    if (currentMainStep === 3) return 'Payment';
+    if (currentMainStep === 4) return 'Schedule Call';
+    if (currentMainStep === 5) return 'Upload Documents';
+    return 'Getting Started';
   };
 
   // Navigate to a specific step by clicking on step indicator
@@ -343,8 +711,8 @@ export default function OnboardingNew() {
       } else if (stepNumber === 6) {
         setCurrentMainStep(5); // Documents
       }
-    } else {
-      // GCC flow: Destination, Details, Payment, Call, Documents (no visa)
+    } else if (onboardingData.relocationType === 'gcc') {
+      // GCC flow: Destination, Details, Payment, Call, Documents (no visa check)
       if (stepNumber === 3) {
         setCurrentMainStep(3); // Payment
       } else if (stepNumber === 4) {
@@ -383,12 +751,15 @@ export default function OnboardingNew() {
               </Link>
 
               {/* Progress Indicator - Center */}
-              <div className="hidden md:flex items-center space-x-2">
-                <span className="text-sm font-semibold" style={{ color: 'rgba(3, 50, 83, 1)' }}>
-                  Step {getCurrentStepNumber()} of {getTotalSteps()}
-                </span>
-                <span className="text-sm text-gray-600">•</span>
-                <span className="text-sm text-gray-600">{getStepName()}</span>
+              <div className="hidden md:flex items-center space-x-3">
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm font-semibold" style={{ color: 'rgba(3, 50, 83, 1)' }}>
+                    Step {getCurrentStepNumber()} of {getTotalSteps()}
+                  </span>
+                  <span className="text-sm text-gray-600">•</span>
+                  <span className="text-sm text-gray-600">{getStepName()}</span>
+                </div>
+
               </div>
 
               {/* User Menu */}
@@ -426,9 +797,21 @@ export default function OnboardingNew() {
         </div>
       </header>
 
-      {/* Main Content */}
-      <div className="pt-10 pb-8 px-3 md:px-4">
-        <div className="max-w-5xl mx-auto">
+      {/* Show loading screen while fetching data from database */}
+      {contextLoading ? (
+        <div className="pt-10 pb-8 px-3 md:px-4">
+          <div className="max-w-5xl mx-auto">
+            <div className="rounded-2xl p-12 shadow-xl text-center" style={{ backgroundColor: 'white', border: '2px solid rgba(187, 40, 44, 0.2)' }}>
+              <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-solid border-current border-r-transparent" style={{ borderColor: 'rgba(187, 40, 44, 1)', borderRightColor: 'transparent' }}></div>
+              <p className="mt-6 text-lg font-medium" style={{ color: 'rgba(3, 50, 83, 1)' }}>Loading your onboarding data...</p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Main Content */}
+          <div className="pt-10 pb-8 px-3 md:px-4">
+            <div className="max-w-5xl mx-auto">
           {/* Progress Steps - Modern Design with semi-transparent background */}
           <div className="mb-4">
             <div
@@ -489,29 +872,61 @@ export default function OnboardingNew() {
 
           {/* Content Card */}
           <div
-            className="rounded-2xl p-6 md:p-8 shadow-xl"
+            className="rounded-2xl p-6 md:p-8 shadow-xl relative"
             style={{
               backgroundColor: 'white',
               border: '2px solid rgba(187, 40, 44, 0.2)'
             }}
           >
+            {/* Loading Overlay */}
+            {loading && (
+              <div className="absolute inset-0 bg-white/80 backdrop-blur-sm rounded-2xl flex items-center justify-center z-50">
+                <div className="text-center">
+                  <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" style={{ borderColor: 'rgba(187, 40, 44, 1)', borderRightColor: 'transparent' }} role="status">
+                    <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading...</span>
+                  </div>
+                  <p className="mt-4 text-sm font-medium" style={{ color: 'rgba(3, 50, 83, 1)' }}>Processing...</p>
+                </div>
+              </div>
+            )}
+
             {/* Step 0: Relocation Type Selection */}
-            {currentMainStep === 0 && (
+            {currentMainStep === 0 && (() => {
+              console.log('🎨 Rendering Step 0 - Destination Selection');
+              console.log('🔍 onboardingData.relocationType:', onboardingData.relocationType);
+
+              return (
               <div>
                 <div className="text-center mb-8">
                   <h1 className="text-2xl md:text-3xl font-bold mb-2" style={{ color: 'rgba(3, 50, 83, 1)' }}>
                     Welcome, {user.name}!
                   </h1>
                   <p className="text-base text-gray-600">Where do you see your future?</p>
+                  {onboardingData.relocationType && (
+                    <p className="text-sm text-gray-500 mt-2">
+                      Current selection: <span className="font-semibold capitalize">{onboardingData.relocationType === 'gcc' ? 'GCC Countries' : 'Europe'}</span>
+                    </p>
+                  )}
+                  {!onboardingData.relocationType && (
+                    <p className="text-sm text-red-500 mt-2">
+                      ⚠️ DEBUG: No relocation type in context
+                    </p>
+                  )}
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-6">
                   {/* Europe Option */}
                   <button
                     onClick={() => handleRelocationTypeSelect('europe')}
-                    className="group rounded-2xl overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 text-left relative h-64"
+                    disabled={loading}
+                    className="group rounded-2xl overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 text-left relative h-64 disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{
-                      border: '2px solid rgba(187, 40, 44, 0.3)'
+                      border: onboardingData.relocationType === 'europe'
+                        ? '3px solid rgba(34, 197, 94, 1)'
+                        : '2px solid rgba(187, 40, 44, 0.3)',
+                      boxShadow: onboardingData.relocationType === 'europe'
+                        ? '0 0 20px rgba(34, 197, 94, 0.3)'
+                        : undefined
                     }}
                   >
                     {/* Background Image */}
@@ -528,6 +943,11 @@ export default function OnboardingNew() {
 
                     {/* Content */}
                     <div className="relative z-10 h-full flex flex-col justify-end p-6">
+                      {onboardingData.relocationType === 'europe' && (
+                        <div className="absolute top-4 right-4 bg-green-500 rounded-full p-2">
+                          <Check className="w-5 h-5 text-white" />
+                        </div>
+                      )}
                       <h2 className="text-2xl font-bold mb-2 text-white">
                         Europe
                       </h2>
@@ -535,7 +955,7 @@ export default function OnboardingNew() {
                         Check your visa eligibility for Germany (Work, Study, Family, or Business Visas)
                       </p>
                       <div className="flex items-center text-sm font-semibold text-white">
-                        <span>Select Europe</span>
+                        <span>{onboardingData.relocationType === 'europe' ? 'Selected' : 'Select Europe'}</span>
                         <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-2 transition-transform" />
                       </div>
                     </div>
@@ -544,9 +964,15 @@ export default function OnboardingNew() {
                   {/* GCC Option */}
                   <button
                     onClick={() => handleRelocationTypeSelect('gcc')}
-                    className="group rounded-2xl overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 text-left relative h-64"
+                    disabled={loading}
+                    className="group rounded-2xl overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 text-left relative h-64 disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{
-                      border: '2px solid rgba(187, 40, 44, 0.3)'
+                      border: onboardingData.relocationType === 'gcc'
+                        ? '3px solid rgba(34, 197, 94, 1)'
+                        : '2px solid rgba(187, 40, 44, 0.3)',
+                      boxShadow: onboardingData.relocationType === 'gcc'
+                        ? '0 0 20px rgba(34, 197, 94, 0.3)'
+                        : undefined
                     }}
                   >
                     {/* Background Image */}
@@ -563,6 +989,11 @@ export default function OnboardingNew() {
 
                     {/* Content */}
                     <div className="relative z-10 h-full flex flex-col justify-end p-6">
+                      {onboardingData.relocationType === 'gcc' && (
+                        <div className="absolute top-4 right-4 bg-green-500 rounded-full p-2">
+                          <Check className="w-5 h-5 text-white" />
+                        </div>
+                      )}
                       <h2 className="text-2xl font-bold mb-2 text-white">
                         GCC Countries
                       </h2>
@@ -570,14 +1001,15 @@ export default function OnboardingNew() {
                         UAE, Saudi Arabia, Qatar, Kuwait, Bahrain, Oman
                       </p>
                       <div className="flex items-center text-sm font-semibold text-white">
-                        <span>Select GCC</span>
+                        <span>{onboardingData.relocationType === 'gcc' ? 'Selected' : 'Select GCC'}</span>
                         <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-2 transition-transform" />
                       </div>
                     </div>
                   </button>
                 </div>
               </div>
-            )}
+              );
+            })()}
 
             {/* Step 1: Personal Details */}
             {currentMainStep === 1 && (
@@ -765,7 +1197,12 @@ export default function OnboardingNew() {
                   <div className="flex gap-4 pt-6">
                     <button
                       type="button"
-                      onClick={() => setCurrentMainStep(0)}
+                      onClick={async () => {
+                        console.log('🔙 Back button clicked from step 1 to step 0');
+                        // Save current step to database before navigating back
+                        await setCurrentStep(0, onboardingData);
+                        setCurrentMainStep(0);
+                      }}
                       className="flex-1 px-6 py-4 rounded-2xl font-semibold transition-all flex items-center justify-center border-2"
                       style={{
                         backgroundColor: 'white',
@@ -779,18 +1216,19 @@ export default function OnboardingNew() {
                     <button
                       type="button"
                       onClick={handlePersonalDetailsSubmit}
-                      className="flex-1 px-6 py-4 rounded-2xl font-semibold text-white transition-all flex items-center justify-center"
+                      disabled={loading}
+                      className="flex-1 px-6 py-4 rounded-2xl font-semibold text-white transition-all flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                       style={{ backgroundColor: 'rgba(187, 40, 44, 1)' }}
                     >
-                      Next
-                      <ArrowRight className="w-5 h-5 ml-2" />
+                      {loading ? 'Saving...' : 'Next'}
+                      {!loading && <ArrowRight className="w-5 h-5 ml-2" />}
                     </button>
                   </div>
                 </form>
               </div>
             )}
 
-            {/* Step 2: Visa Check Questions (Europe only) - Keep existing implementation */}
+            {/* Step 2: Visa Check Questions (Europe only) */}
             {currentMainStep === 2 && onboardingData.relocationType === 'europe' && (
               <div>
                 <div className="mb-8">
@@ -984,8 +1422,8 @@ export default function OnboardingNew() {
             {/* Add similar modern styling to steps 2.5, 3, 4, and 5 */}
             {/* I'll show step 2.5 as an example */}
 
-            {/* Step 2.5: Visa Result Screen */}
-            {currentMainStep === 2.5 && (() => {
+            {/* Step 2.5: Visa Result Screen (Europe only) */}
+            {currentMainStep === 2.5 && onboardingData.relocationType === 'europe' && (() => {
               const eligibilityResult = calculateVisaEligibility(visaForm);
               const score = getEligibilityScore(visaForm);
 
@@ -1295,13 +1733,18 @@ export default function OnboardingNew() {
 
                 <div className="mt-6 text-center">
                   <button
-                    onClick={() => {
+                    onClick={async () => {
+                      console.log('📅 Saving Calendly booking to database...');
+                      
                       // Mark step as completed and move to next step
-                      scheduleCall({
+                      const updatedData = await scheduleCall({
                         calendlyBooked: true,
                         scheduledAt: new Date().toISOString()
                       });
-                      markStepCompleted(4);
+                      await markStepCompleted(4, updatedData);
+                      
+                      console.log('✅ Calendly booking saved to database');
+                      
                       setToast({ message: 'Please proceed to the next step after booking your call', type: 'success' });
                       setTimeout(() => {
                         setCurrentMainStep(5);
@@ -1465,6 +1908,8 @@ export default function OnboardingNew() {
           showCancel={modal.showCancel}
           onConfirm={modal.onConfirm}
         />
+      )}
+      </>
       )}
     </div>
   );

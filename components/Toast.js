@@ -34,6 +34,13 @@ export default function Toast({ message, type = 'success', onClose, duration = 3
           iconColor: 'rgba(59, 130, 246, 1)',
           icon: Info
         };
+      case 'warning':
+        return {
+          bg: 'rgba(251, 191, 36, 0.1)',
+          border: 'rgba(251, 191, 36, 0.4)',
+          iconColor: 'rgba(251, 191, 36, 1)',
+          icon: AlertCircle
+        };
       default:
         return {
           bg: 'rgba(34, 197, 94, 0.1)',
@@ -49,7 +56,7 @@ export default function Toast({ message, type = 'success', onClose, duration = 3
 
   return (
     <div
-      className="fixed top-24 right-6 z-50 animate-slide-in"
+      className="fixed top-6 right-6 z-[9999] animate-slide-in"
       style={{ maxWidth: '400px' }}
     >
       <div

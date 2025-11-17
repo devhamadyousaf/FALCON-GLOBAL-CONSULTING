@@ -4,6 +4,9 @@ import { useRouter } from 'next/router';
 import { Globe, Mail, Lock, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import Toast from '../components/Toast';
+import Spinner from '../components/Spinner';
+import PageLoader from '../components/PageLoader';
+import LoadingButton from '../components/LoadingButton';
 
 export default function Login() {
   const router = useRouter();
@@ -15,6 +18,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
   const handleInputChange = (e) => {
@@ -28,6 +32,15 @@ export default function Login() {
     setLoading(true);
     try {
       const result = await loginWithGoogle();
+
+      // Check if it's a redirect (Google OAuth will redirect the page)
+      if (result.redirecting) {
+        // Don't show error - user is being redirected to Google
+        setToast({ show: true, message: 'Redirecting to Google...', type: 'success' });
+        // The page will redirect, so we don't need to do anything else
+        return;
+      }
+
       if (result.success) {
         if (result.needsOnboarding) {
           // Redirect to new onboarding flow for new Google users
@@ -37,8 +50,12 @@ export default function Login() {
           setToast({ show: true, message: 'Welcome back, ' + result.user.name, type: 'success' });
           setTimeout(() => router.push('/'), 1500);
         }
+      } else if (result.error) {
+        setToast({ show: true, message: result.error, type: 'error' });
+        setLoading(false);
       }
     } catch (error) {
+      console.error('Google login error:', error);
       setToast({ show: true, message: 'Login failed. Please try again.', type: 'error' });
       setLoading(false);
     }
@@ -50,8 +67,10 @@ export default function Login() {
 
     try {
       const result = await login(formData.email, formData.password);
+
       if (result.success) {
         setToast({ show: true, message: 'Login successful! Welcome back, ' + result.user.name, type: 'success' });
+        setRedirecting(true);
 
         // Redirect based on user role
         // DashboardGuard will check onboarding completion and redirect if needed
@@ -62,9 +81,34 @@ export default function Login() {
             router.push('/dashboard/customer');
           }
         }, 1500);
+      } else if (result.error) {
+        // Handle specific error cases with user-friendly messages
+        let errorMessage = result.error;
+
+        if (errorMessage.includes('Invalid login credentials')) {
+          errorMessage = 'Incorrect email or password. Please try again.';
+        } else if (errorMessage.includes('Email not confirmed')) {
+          errorMessage = 'Please verify your email before logging in. Check your inbox.';
+        } else if (errorMessage.includes('Too many requests')) {
+          errorMessage = 'Too many login attempts. Please wait a moment and try again.';
+        }
+
+        setToast({ show: true, message: errorMessage, type: 'error' });
+        setLoading(false);
       }
     } catch (error) {
-      setToast({ show: true, message: 'Login failed. Please check your credentials.', type: 'error' });
+      console.error('Login error:', error);
+
+      let errorMessage = 'Login failed. Please check your credentials.';
+      if (error.message) {
+        if (error.message.includes('Invalid login credentials')) {
+          errorMessage = 'Incorrect email or password. Please try again.';
+        } else if (error.message.includes('Email not confirmed')) {
+          errorMessage = 'Please verify your email before logging in. Check your inbox.';
+        }
+      }
+
+      setToast({ show: true, message: errorMessage, type: 'error' });
       setLoading(false);
     }
   };
@@ -96,8 +140,8 @@ export default function Login() {
             <p className="text-gray-600">Sign in to your account to continue</p>
           </div>
 
-          {/* Google Login Button */}
-          <button
+          {/* Google Login Button (uses LoadingButton for consistent spinner & disabled state) */}
+          <LoadingButton
             onClick={handleGoogleLogin}
             disabled={loading}
             className="w-full flex items-center justify-center space-x-3 bg-white border-2 border-gray-200 rounded-xl py-3 px-4 font-medium text-gray-700 hover:border-blue-500 hover:bg-blue-50 transition-all duration-300 mb-6 group"
@@ -109,7 +153,7 @@ export default function Login() {
               <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
             </svg>
             <span>Continue with Google</span>
-          </button>
+          </LoadingButton>
 
           {/* Divider */}
           <div className="relative mb-6">
@@ -194,11 +238,20 @@ export default function Login() {
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-red-600 to-red-700 text-white py-3 rounded-xl font-semibold hover:from-red-700 hover:to-red-800 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={loading || redirecting}
+              className="w-full bg-gradient-to-r from-red-600 to-red-700 text-white py-3 rounded-xl font-semibold hover:from-red-700 hover:to-red-800 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
             >
-              <span>{loading ? 'Signing In...' : 'Sign In'}</span>
-              {!loading && <ArrowRight className="w-5 h-5" />}
+              {loading ? (
+                <>
+                  <Spinner size="sm" color="white" />
+                  <span>Signing In...</span>
+                </>
+              ) : (
+                <>
+                  <span>Sign In</span>
+                  <ArrowRight className="w-5 h-5" />
+                </>
+              )}
             </button>
           </form>
 
@@ -232,6 +285,9 @@ export default function Login() {
           </div>
         </div>
       </div>
+
+      {/* Page Loader during redirect */}
+      {redirecting && <PageLoader />}
 
       {/* Toast Notification */}
       {toast.show && (
