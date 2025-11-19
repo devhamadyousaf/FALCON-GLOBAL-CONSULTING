@@ -49,6 +49,26 @@ const Testimonials = () => {
 
         {/* Carousel Container */}
         <div className="relative w-64 md:w-72 mx-auto">
+          {/* Navigation Arrows - Outside Video */}
+          {!isPlaying && testimonials.length > 1 && (
+            <>
+              <button
+                onClick={prevSlide}
+                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-16 w-12 h-12 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-lg transition-all duration-300 hover:scale-110 z-10"
+                style={{ color: 'rgba(0, 50, 83, 1)' }}
+              >
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+              <button
+                onClick={nextSlide}
+                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-16 w-12 h-12 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-lg transition-all duration-300 hover:scale-110 z-10"
+                style={{ color: 'rgba(0, 50, 83, 1)' }}
+              >
+                <ChevronRight className="w-6 h-6" />
+              </button>
+            </>
+          )}
+
           {/* Video Carousel */}
           <div className="relative bg-white rounded-2xl shadow-2xl overflow-hidden">
             {/* Video Container - Portrait Ratio (9:16) */}
@@ -70,38 +90,16 @@ const Testimonials = () => {
                 Your browser does not support the video tag.
               </video>
 
-              {/* Play Button Overlay */}
+              {/* Play Button Overlay - Transparent */}
               {!isPlaying && (
                 <div
                   className="absolute inset-0 flex items-center justify-center bg-black/20 cursor-pointer group hover:bg-black/30 transition-all duration-300"
                   onClick={() => setIsPlaying(true)}
                 >
-                  <div className="w-20 h-20 md:w-24 md:h-24 bg-white rounded-full flex items-center justify-center shadow-2xl transform group-hover:scale-110 transition-all duration-300">
-                    <Play className="w-10 h-10 md:w-12 md:h-12 ml-1 fill-current" style={{ color: 'rgba(0, 50, 83, 1)' }} />
-                  </div>
+                  <Play className="w-16 h-16 md:w-20 md:h-20 fill-white drop-shadow-2xl transform group-hover:scale-110 transition-all duration-300" />
                 </div>
               )}
             </div>
-
-            {/* Navigation Arrows */}
-            {!isPlaying && testimonials.length > 1 && (
-              <>
-                <button
-                  onClick={prevSlide}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-lg transition-all duration-300 hover:scale-110 z-10"
-                  style={{ color: 'rgba(0, 50, 83, 1)' }}
-                >
-                  <ChevronLeft className="w-6 h-6" />
-                </button>
-                <button
-                  onClick={nextSlide}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-lg transition-all duration-300 hover:scale-110 z-10"
-                  style={{ color: 'rgba(0, 50, 83, 1)' }}
-                >
-                  <ChevronRight className="w-6 h-6" />
-                </button>
-              </>
-            )}
           </div>
 
           {/* Dots Navigation */}
