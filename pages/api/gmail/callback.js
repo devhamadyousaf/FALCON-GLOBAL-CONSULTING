@@ -32,9 +32,9 @@ export default async function handler(req, res) {
     }
 
     // Exchange code for tokens
-    const clientId = '76237042709-h892133umqi54o5cnbq56tgdsl5ojglk.apps.googleusercontent.com';
-    const clientSecret = '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';
-    const redirectUri = 'http://localhost:3000/api/gmail/callback';
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/gmail/callback`;
 
     console.log('🔄 Exchanging code for tokens...');
     console.log('- Client ID:', clientId);

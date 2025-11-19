@@ -17,8 +17,8 @@ export default async function handler(req, res) {
     }
 
     // Gmail OAuth URL
-    const clientId = '76237042709-h892133umqi54o5cnbq56tgdsl5ojglk.apps.googleusercontent.com';
-    const redirectUri = 'http://localhost:3000/api/gmail/callback';
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/gmail/callback`;
     
     console.log('OAuth Config:');
     console.log('- Client ID:', clientId);

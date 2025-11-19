@@ -40,8 +40,8 @@ export default async function handler(req, res) {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
-        client_id: '76237042709-h892133umqi54o5cnbq56tgdsl5ojglk.apps.googleusercontent.com',
-        client_secret: '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',
+        client_id: process.env.GOOGLE_CLIENT_ID,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET,
         refresh_token: gmailAccount.refresh_token,
         grant_type: 'refresh_token',
       }),
