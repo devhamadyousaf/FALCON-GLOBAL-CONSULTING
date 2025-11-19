@@ -6,7 +6,9 @@
       "Bash(npx supabase:*)",
       "Bash(npm run build:*)",
       "Bash(npm run dev:*)",
-      "Bash(ping:*)"
+      "Bash(ping:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
