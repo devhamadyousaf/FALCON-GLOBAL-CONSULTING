@@ -907,11 +907,6 @@ export default function OnboardingNew() {
                       Current selection: <span className="font-semibold capitalize">{onboardingData.relocationType === 'gcc' ? 'GCC Countries' : 'Europe'}</span>
                     </p>
                   )}
-                  {!onboardingData.relocationType && (
-                    <p className="text-sm text-red-500 mt-2">
-                      ⚠️ DEBUG: No relocation type in context
-                    </p>
-                  )}
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-6">

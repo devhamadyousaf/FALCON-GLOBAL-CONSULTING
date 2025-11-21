@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../../context/AuthContext';
+import { supabase } from '../../../lib/supabase';
 import Link from 'next/link';
 import {
   Briefcase,
@@ -101,6 +102,55 @@ export default function ServicePage() {
     };
 
     fetchJobLeads();
+
+    // Set up realtime subscription for Job-Leads table
+    let subscription;
+    if (serviceId === 'jobs' && user?.email) {
+      console.log('Setting up realtime subscription for Job-Leads...');
+
+      subscription = supabase
+        .channel('job-leads-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
+            schema: 'public',
+            table: 'Job-Leads',
+            filter: `email=eq.${user.email}` // Only listen to changes for this user's email
+          },
+          (payload) => {
+            console.log('Realtime update received:', payload);
+
+            // Handle different event types
+            if (payload.eventType === 'INSERT') {
+              // Add new job to the list
+              setJobLeads(prev => [payload.new, ...prev]);
+              console.log('New job added:', payload.new);
+            } else if (payload.eventType === 'UPDATE') {
+              // Update existing job in the list
+              setJobLeads(prev =>
+                prev.map(job => job.id === payload.new.id ? payload.new : job)
+              );
+              console.log('Job updated:', payload.new);
+            } else if (payload.eventType === 'DELETE') {
+              // Remove deleted job from the list
+              setJobLeads(prev => prev.filter(job => job.id !== payload.old.id));
+              console.log('Job deleted:', payload.old);
+            }
+          }
+        )
+        .subscribe((status) => {
+          console.log('Realtime subscription status:', status);
+        });
+    }
+
+    // Cleanup subscription on unmount
+    return () => {
+      if (subscription) {
+        console.log('Cleaning up realtime subscription...');
+        supabase.removeChannel(subscription);
+      }
+    };
   }, [serviceId, user?.email]);
 
   // Check Gmail connection status
