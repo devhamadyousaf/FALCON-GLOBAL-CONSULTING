@@ -3,7 +3,7 @@ Here we go hurahhhh, hahaha hurah, hehe hurahh, yahuu
 ## Getting Started huhuhehehehe
 This is the thing
 First, run the development server:
-This is it all of it and here we goes :) bla bla bla
+This is it all of it and here we goes :) bla bla bla bla
 ```bash
 npm run dev
 # or
