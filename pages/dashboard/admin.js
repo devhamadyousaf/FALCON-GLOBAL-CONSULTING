@@ -382,37 +382,29 @@ export default function AdminDashboard() {
       id: 1,
       name: 'Total Users',
       value: stats.totalUsers.toLocaleString(),
-      change: '+12.5%',
       icon: Users,
-      color: 'from-blue-500 to-blue-600',
-      trend: 'up'
+      color: 'from-blue-500 to-blue-600'
     },
     {
       id: 2,
       name: 'Active Applications',
       value: stats.activeApplications.toLocaleString(),
-      change: '+8.2%',
       icon: FileText,
-      color: 'from-green-500 to-green-600',
-      trend: 'up'
+      color: 'from-green-500 to-green-600'
     },
     {
       id: 3,
       name: 'Revenue (MTD)',
       value: `$${stats.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
-      change: '+18.7%',
       icon: DollarSign,
-      color: 'from-purple-500 to-purple-600',
-      trend: 'up'
+      color: 'from-purple-500 to-purple-600'
     },
     {
       id: 4,
       name: 'Pending Reviews',
       value: stats.pendingReviews.toLocaleString(),
-      change: '-5.3%',
       icon: Clock,
-      color: 'from-orange-500 to-orange-600',
-      trend: 'down'
+      color: 'from-orange-500 to-orange-600'
     }
   ];
 
@@ -645,11 +637,6 @@ export default function AdminDashboard() {
                   <div className={`w-12 h-12 bg-gradient-to-r ${stat.color} rounded-xl flex items-center justify-center`}>
                     <stat.icon className="w-6 h-6 text-white" />
                   </div>
-                  <span className={`text-sm font-medium ${
-                    stat.trend === 'up' ? 'text-green-600' : 'text-red-600'
-                  }`}>
-                    {stat.change}
-                  </span>
                 </div>
                 <p className="text-sm text-gray-500 mb-1">{stat.name}</p>
                 <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
@@ -1081,30 +1068,12 @@ export default function AdminDashboard() {
                 <Edit className="w-7 h-7 text-indigo-600" />
                 <span>Content Management</span>
               </h3>
-              <button className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
-                <Plus className="w-5 h-5" />
-                <span>Add Content</span>
-              </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {['Homepage Banner', 'Services Section', 'About Us', 'Testimonials', 'FAQ Section', 'Contact Info'].map((content, index) => (
-                <div key={index} className="p-6 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                      <FileText className="w-5 h-5 text-indigo-600" />
-                    </div>
-                    <button className="p-2 hover:bg-gray-200 rounded-lg transition-colors">
-                      <Edit className="w-4 h-4 text-gray-600" />
-                    </button>
-                  </div>
-                  <h4 className="font-semibold text-gray-900 mb-2">{content}</h4>
-                  <p className="text-sm text-gray-500">Last updated 2 days ago</p>
-                  <button className="mt-4 w-full px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm">
-                    Edit Content
-                  </button>
-                </div>
-              ))}
+            <div className="text-center py-16">
+              <Edit className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+              <h4 className="text-lg font-semibold text-gray-700 mb-2">Content Management Coming Soon</h4>
+              <p className="text-gray-500">This feature will allow you to manage website content dynamically.</p>
             </div>
           </div>
         )}
