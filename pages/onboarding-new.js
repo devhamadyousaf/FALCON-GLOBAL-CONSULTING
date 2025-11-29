@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import {
   Globe, User, Mail, Phone, MapPin, ArrowRight, ArrowLeft, ChevronDown,
-  Check, X, Upload, FileText, CheckCircle, Calendar, CreditCard,
-  Clock, AlertCircle, Building, GraduationCap, Briefcase, Languages,
-  Home, Info, Menu, LogOut
+  Check, X, Upload, CheckCircle, Calendar, CreditCard,
+  AlertCircle, Building,
+  Home, Info, LogOut
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOnboarding } from '../context/OnboardingContext';
@@ -24,13 +24,10 @@ export default function OnboardingNew() {
     updatePersonalDetails,
     updateVisaCheck,
     setVisaEligibility,
-    completePayment,
     scheduleCall,
     uploadDocuments,
     setCurrentStep,
-    markStepCompleted,
-    isStepCompleted,
-    canAccessDashboard
+    markStepCompleted
   } = useOnboarding();
 
   const [currentMainStep, setCurrentMainStep] = useState(0);
@@ -78,6 +75,51 @@ export default function OnboardingNew() {
 
   const [callDate, setCallDate] = useState('');
   const [callTime, setCallTime] = useState('');
+
+
+  // Handle payment redirect from Tilopay
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentStatus = urlParams.get('payment');
+    const code = urlParams.get('code');
+    const description = urlParams.get('description');
+
+    // Only process if payment parameter exists
+    if (!paymentStatus) return;
+
+    // Check if payment was ACTUALLY successful (code 1 = approved)
+    if (paymentStatus === 'success' && code === '1') {
+      console.log('✅ Payment success detected from redirect!');
+
+      // Mark payment step as completed
+      const completePayment = async () => {
+        try {
+          await markStepCompleted(3);
+          await setCurrentStep(4);
+          setCurrentMainStep(4);
+          setToast({ message: 'Payment successful! Please schedule your onboarding call.', type: 'success' });
+
+          // Clean URL
+          router.replace('/onboarding-new?step=4', undefined, { shallow: true });
+        } catch (error) {
+          console.error('Error completing payment step:', error);
+        }
+      };
+
+      completePayment();
+    }
+    // Handle payment failure
+    else if (paymentStatus === 'success' && code !== '1') {
+      console.error('❌ Payment failed with code:', code, 'Description:', description);
+      setToast({
+        message: `Payment failed: ${description || 'Please try again'}`,
+        type: 'error'
+      });
+      // Stay on payment step or redirect back
+      setCurrentMainStep(3);
+      router.replace('/onboarding-new?step=3', undefined, { shallow: true });
+    }
+  }, [router, markStepCompleted, setCurrentStep, setToast]);
 
   // Redirect if not authenticated or email not confirmed
   useEffect(() => {
@@ -394,49 +436,19 @@ export default function OnboardingNew() {
     }
   };
 
-  const handlePaymentSuccess = async (planName) => {
-    setLoading(true);
 
-    try {
-      // Map plan names to prices
-      const planPrices = {
-        'silver': 299,
-        'gold': 699,
-        'diamond': 1599,
-        'diamond+': 0 // Negotiable
-      };
-
-      const amount = planPrices[planName] || 0;
-
-      console.log('💳 Saving payment details to database...');
-
-      // Save payment to database immediately
-      const updatedData = await completePayment({
-        plan: planName,
-        amount: amount,
-        currency: 'USD',
-        timestamp: new Date().toISOString(),
-        transactionId: 'TXN_' + Math.random().toString(36).substr(2, 9).toUpperCase()
-      });
-
-      const completedData = await markStepCompleted(3, updatedData);
-
-      console.log('✅ Payment saved to database');
-
-      setToast({
-        message: `Payment successful! ${planName.charAt(0).toUpperCase() + planName.slice(1)} plan selected.`,
-        type: 'success'
-      });
-
-      await setCurrentStep(4, completedData);
-      setCurrentMainStep(4);
-    } catch (error) {
-      console.error('Error processing payment:', error);
-      setToast({ message: 'Payment processing failed. Please try again.', type: 'error' });
-    } finally {
-      setLoading(false);
+  // Handle plan selection - Redirect to payment page
+  const handlePlanSelection = (plan) => {
+    if (plan.name.toLowerCase() === 'diamond+') {
+      setToast({ message: 'Please contact us for Diamond+ custom pricing.', type: 'info' });
+      return;
     }
+
+    console.log('📦 Plan selected:', plan.name);
+    // Redirect to dedicated payment page
+    router.push(`/payment-tilopay?plan=${plan.name.toLowerCase()}`);
   };
+
 
   const handleScheduleCall = async () => {
     if (!callDate || !callTime) {
@@ -1575,7 +1587,7 @@ export default function OnboardingNew() {
                           0 0 0 1px rgba(255, 255, 255, 0.1) inset,
                           0 2px 4px 0 rgba(255, 255, 255, 0.15) inset`
                       }}
-                      onClick={() => handlePaymentSuccess(plan.name.toLowerCase())}
+                      onClick={() => handlePlanSelection(plan)}
                     >
                       {/* Glass overlay - Top shine */}
                       <div
@@ -1688,7 +1700,7 @@ export default function OnboardingNew() {
                 </div>
 
                 <p className="text-center text-sm text-gray-500 mt-6">
-                  🔒 Secure payment powered by Stripe and PayPal. All plans include a consultation call.
+                  🔒 Secure payment powered by Tilopay. All plans include a consultation call.
                 </p>
               </div>
             )}

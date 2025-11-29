@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Tilopay SDK Test - Minimal</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        label {
+            display: block;
+            margin-top: 15px;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        input[type="button"] {
+            margin-top: 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            cursor: pointer;
+            width: auto;
+            margin-right: 10px;
+        }
+        input[type="button"]:hover {
+            background: #0056b3;
+        }
+        #status {
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            display: none;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        #responseTilopay {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Tilopay SDK Test</h1>
+        <p>Testing Tilopay payment integration - Minimal Version</p>
+
+        <div id="status"></div>
+
+        <div class="payFormTilopay">
+            <label>Payment Method</label>
+            <select name="tlpy_payment_method" id="tlpy_payment_method">
+                <option value="">Select payment method</option>
+            </select>
+            <br /><br />
+
+            <div id="tlpy_card_payment_div">
+                <label>Cards</label>
+                <select name="tlpy_saved_cards" id="tlpy_saved_cards">
+                    <option value="">Select card</option>
+                </select>
+                <br /><br />
+
+                <label>Card number</label>
+                <input type="text" id="tlpy_cc_number" name="tlpy_cc_number" value="" placeholder="4111111111111111">
+                <br /><br />
+
+                <label>Card expire</label>
+                <input type="text" id="tlpy_cc_expiration_date" name="tlpy_cc_expiration_date" value="" placeholder="12/25">
+                <br /><br />
+
+                <label>CVV number</label>
+                <input type="text" id="tlpy_cvv" name="tlpy_cvv" value="" placeholder="123">
+                <br /><br />
+            </div>
+
+            <div id="tlpy_phone_number_div" style="display: none;">
+                <label>Phone number</label>
+                <input type="text" id="tlpy_phone_number" name="tlpy_phone_number" value="" placeholder="+507 1234-5678">
+                <br /><br />
+            </div>
+
+            <input type="button" onclick="processPayment();" value="Pay $1.00">
+            <input type="button" onclick="getCardBrand();" value="Get Card Type">
+            <input type="button" onclick="showDebugInfo();" value="Debug Info">
+        </div>
+
+        <!-- Required container for 3DS process -->
+        <div id="responseTilopay"></div>
+
+    <div style="margin-top: 20px; padding: 15px; background: #e9ecef; border-radius: 4px;">
+        <strong>Debug Output:</strong>
+        <pre id="debugOutput" style="margin-top: 10px; white-space: pre-wrap; font-size: 11px;"></pre>
+    </div>
+    </div>    <!-- Load Tilopay SDK - First option as in reference -->
+    <script src="https://app.tilopay.com/sdk/v2/sdk_tpay.min.js"></script>
+
+    <script type="text/javascript">
+        // Global variables
+        let initResponse = null;
+
+        function showStatus(message, isError = false) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = isError ? 'error' : 'success';
+            statusDiv.style.display = 'block';
+            console.log(isError ? '❌' : '✅', message);
+        }
+
+        function showResponse(data) {
+            document.getElementById('debugOutput').textContent = JSON.stringify(data, null, 2);
+        }
+
+        // SDK on Ready document - EXACTLY like reference
+        document.addEventListener("DOMContentLoaded", async function () {
+            try {
+                console.log('🔄 DOM Loaded, checking Tilopay SDK...');
+                
+                if (typeof Tilopay === 'undefined') {
+                    throw new Error('Tilopay SDK not loaded');
+                }
+
+                showStatus('Getting SDK token from Tilopay API...');
+
+                // First, get the SDK token from our backend
+                const tokenResponse = await fetch('/api/tilopay/get-token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        amount: 1.00,
+                        currency: 'USD',
+                        orderNumber: 'sdk-' + Date.now()
+                    })
+                });
+
+                const tokenData = await tokenResponse.json();
+                
+                if (!tokenResponse.ok || !tokenData.token) {
+                    throw new Error('Failed to get SDK token: ' + (tokenData.message || tokenData.error));
+                }
+
+                const TILOPAY_TOKEN = tokenData.token;
+                console.log('✅ Got SDK token:', TILOPAY_TOKEN.substring(0, 20) + '...');
+
+                showStatus('Initializing Tilopay SDK...');
+
+                // Initialize Tilopay SDK - EXACTLY like reference
+                var initialize = await Tilopay.Init({
+                    token: TILOPAY_TOKEN,
+                    currency: "USD",
+                    language: "en",
+                    amount: 1.00,
+                    billToFirstName: "Jose",
+                    billToLastName: "Lopez",
+                    billToAddress: "San Jose",
+                    billToAddress2: "",
+                    billToCity: "San Jose",
+                    billToState: "SJ",
+                    billToZipPostCode: "10101",
+                    billToCountry: "CR",
+                    billToTelephone: "+50688888888",
+                    billToEmail: "test@example.com",
+                    orderNumber: "sdk-" + Date.now(),
+                    capture: 1,
+                    redirect: "https://tilopay.test/response",
+                    subscription: 0,
+                    hashVersion: "V2"
+                });
+
+                console.log('✅ Tilopay Init Response:', initialize);
+                initResponse = initialize;
+
+                if (!initialize) {
+                    throw new Error('Initialize returned null or undefined');
+                }
+
+                // Show full response for debugging
+                showResponse({
+                    message: 'Tilopay API Response',
+                    tokenMethod: 'Got from GetTokenSdk API (correct method)',
+                    response: initialize,
+                    methods: initialize.methods || [],
+                    cards: initialize.cards || [],
+                    methodsCount: (initialize.methods || []).length,
+                    cardsCount: (initialize.cards || []).length
+                });
+
+                if (!initialize.methods || initialize.methods.length === 0) {
+                    showStatus('⚠️ API Connected but No Payment Methods Available', true);
+                    throw new Error('No payment methods returned from Tilopay API.\n\n' +
+                        'This means:\n' +
+                        '✅ Your API key is valid and connecting\n' +
+                        '❌ But your Tilopay account has no payment methods enabled\n\n' +
+                        'Next Steps:\n' +
+                        '1. Login to your Tilopay dashboard\n' +
+                        '2. Check account status and configuration\n' +
+                        '3. Contact Tilopay support: soporte@tilo.co\n' +
+                        '4. Ask them to enable payment methods for your account\n' +
+                        '5. Provide your API key: ' + TILOPAY_TOKEN.substring(0, 15) + '...');
+                }
+
+                // Load payment methods and cards
+                await loadPaymentMethodsOptions(initialize.methods);
+                await loadCardOptions(initialize.cards || []);
+
+                showStatus(`✅ Success! Found ${initialize.methods.length} payment method(s)`);
+
+                // Payment method change handler - EXACTLY like reference
+                document.getElementById("tlpy_payment_method").onchange = async function (e) {
+                    var method = document.getElementById("tlpy_payment_method").value;
+                    if (method) {
+                        const splitMethods = method.split(':');
+                        const showInputs = (splitMethods[1] == '18');
+                        const tlpy_card_payment_div = document.getElementById("tlpy_card_payment_div");
+                        if (tlpy_card_payment_div && showInputs) {
+                            tlpy_card_payment_div.style.display = 'none';
+                        } else {
+                            tlpy_card_payment_div.style.display = 'block';
+                        }
+                        const tlpy_phone_number_div = document.getElementById("tlpy_phone_number_div");
+                        if (tlpy_phone_number_div && showInputs) {
+                            tlpy_phone_number_div.style.display = 'block';
+                            // Update phone yappy to process the payment
+                            await setYappyPhone();
+                        } else {
+                            tlpy_phone_number_div.style.display = 'none';
+                        }
+                    }
+                };
+
+            } catch (error) {
+                console.error('❌ Initialization Error:', error);
+                showStatus('Failed: ' + error.message.split('\n')[0], true);
+                showResponse({ 
+                    error: error.message, 
+                    apiKey: TILOPAY_TOKEN.substring(0, 15) + '...',
+                    troubleshooting: {
+                        step1: 'Verify your Tilopay account is fully activated',
+                        step2: 'Check if payment gateway is configured in Tilopay dashboard',
+                        step3: 'Contact soporte@tilo.co with your API key',
+                        step4: 'Ask them to enable payment methods (Visa, Mastercard, etc.)',
+                        step5: 'This is an account configuration issue, not a code issue'
+                    }
+                });
+            }
+        });
+
+        /**
+         * Function to update the yappy phone number in the Tilopay object
+         */
+        async function setYappyPhone() {
+            document.getElementById("tlpy_phone_number").onchange = async function () {
+                var phone = document.getElementById("tlpy_phone_number").value;
+                if (phone) {
+                    var update = await Tilopay.updateOptions({
+                        phoneYappy: phone,
+                    });
+                }
+            }
+        }
+
+        /**
+         * Get the card brand
+         */
+        async function getCardBrand() {
+            try {
+                const cardType = await Tilopay.getCardType();
+                console.log('Card Type:', cardType);
+                showResponse({ cardType: cardType });
+                alert('Card Type: ' + JSON.stringify(cardType));
+            } catch (error) {
+                console.error('Error getting card type:', error);
+                showResponse({ error: error.message });
+            }
+        }
+
+        /**
+         * Populates the payment method dropdown
+         */
+        async function loadPaymentMethodsOptions(methods) {
+            console.log('📋 Loading payment methods:', methods);
+            const select = document.getElementById("tlpy_payment_method");
+            
+            // Clear existing options except the first one
+            while (select.options.length > 1) {
+                select.remove(1);
+            }
+
+            methods.forEach(function (method) {
+                var option = document.createElement("option");
+                option.value = method.id;
+                option.text = method.name;
+                select.appendChild(option);
+                console.log('  ➕ Added method:', method.name, '(' + method.id + ')');
+            });
+        }
+
+        /**
+         * Populates the saved card dropdown
+         */
+        async function loadCardOptions(cards) {
+            console.log('💳 Loading saved cards:', cards);
+            const select = document.getElementById("tlpy_saved_cards");
+            
+            // Clear existing options except the first one
+            while (select.options.length > 1) {
+                select.remove(1);
+            }
+
+            if (!cards || cards.length === 0) {
+                console.log('  ℹ️ No saved cards');
+                return;
+            }
+
+            cards.forEach(function (card) {
+                var option = document.createElement("option");
+                option.value = card.id;
+                option.text = card.name;
+                select.appendChild(option);
+                console.log('  ➕ Added card:', card.name);
+            });
+        }
+
+        /**
+         * Process the payment
+         */
+        async function processPayment() {
+            const method = document.getElementById("tlpy_payment_method").value;
+            
+            if (!method) {
+                alert('Please select a payment method');
+                return;
+            }
+
+            try {
+                showStatus('Processing payment...');
+                console.log('💳 Starting payment...');
+                
+                var payment = await Tilopay.startPayment();
+                
+                console.log('💰 Payment Response:', payment);
+                showResponse(payment);
+
+                if (payment.success || payment.status === 'approved') {
+                    showStatus('✅ Payment Successful!');
+                } else {
+                    showStatus('Payment Status: ' + (payment.status || 'Unknown'), true);
+                }
+            } catch (error) {
+                console.error('❌ Payment Error:', error);
+                showStatus('Payment Failed: ' + error.message, true);
+                showResponse({ error: error.message, stack: error.stack });
+            }
+        }
+
+        /**
+         * Show debug information
+         */
+        function showDebugInfo() {
+            const debug = {
+                sdkLoaded: typeof Tilopay !== 'undefined',
+                apiKeyUsed: '8176-1004-6878-8064-5787',
+                initResponse: initResponse,
+                paymentMethodsReturned: initResponse?.methods || [],
+                paymentMethodsCount: (initResponse?.methods || []).length,
+                savedCardsReturned: initResponse?.cards || [],
+                savedCardsCount: (initResponse?.cards || []).length,
+                dropdownOptionsCount: document.getElementById("tlpy_payment_method").options.length - 1,
+                selectedMethod: document.getElementById("tlpy_payment_method").value,
+                cardDivVisible: document.getElementById("tlpy_card_payment_div").style.display !== 'none',
+                phoneDivVisible: document.getElementById("tlpy_phone_number_div").style.display === 'block',
+                diagnosis: (initResponse?.methods || []).length === 0 ? 
+                    'ISSUE: Tilopay account has no payment methods enabled. Contact Tilopay support.' :
+                    'OK: Payment methods available'
+            };
+            
+            console.log('🔍 Debug Info:', debug);
+            showResponse(debug);
+            
+            alert('Debug info logged to console and shown below.\n\n' + 
+                  'Payment Methods Found: ' + debug.paymentMethodsCount + '\n' +
+                  'Status: ' + debug.diagnosis);
+        }
+    </script>
+
+</body>
+
+</html>

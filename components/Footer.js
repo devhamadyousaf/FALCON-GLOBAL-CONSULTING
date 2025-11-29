@@ -38,15 +38,34 @@ const Footer = () => {
               Your gateway to global opportunities. We connect people, businesses, and opportunities across borders with trusted solutions.
             </p>
             <div className="flex space-x-4">
-              {[Facebook, Twitter, Linkedin, Instagram].map((Icon, index) => (
-                <a
-                  key={index}
-                  href="#"
-                  className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-white/20 transition-colors duration-300 group"
-                >
-                  <Icon className="w-5 h-5 text-gray-300 group-hover:text-white transition-colors duration-300" />
-                </a>
-              ))}
+              <a
+                href="https://www.facebook.com/profile.php?id=61583664039079"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-white/20 transition-colors duration-300 group"
+              >
+                <Facebook className="w-5 h-5 text-gray-300 group-hover:text-white transition-colors duration-300" />
+              </a>
+              <a
+                href="#"
+                className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-white/20 transition-colors duration-300 group"
+              >
+                <Twitter className="w-5 h-5 text-gray-300 group-hover:text-white transition-colors duration-300" />
+              </a>
+              <a
+                href="#"
+                className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-white/20 transition-colors duration-300 group"
+              >
+                <Linkedin className="w-5 h-5 text-gray-300 group-hover:text-white transition-colors duration-300" />
+              </a>
+              <a
+                href="https://www.instagram.com/falconglobalconsulting/?utm_source=ig_web_button_share_sheet"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-white/20 transition-colors duration-300 group"
+              >
+                <Instagram className="w-5 h-5 text-gray-300 group-hover:text-white transition-colors duration-300" />
+              </a>
             </div>
           </div>
 

@@ -326,9 +326,90 @@ export function OnboardingProvider({ children }) {
     };
     setOnboardingData(updatedData);
     await saveToDatabase(updatedData);
-    
+
     // Return updated data so caller can use it immediately (avoid stale state)
     return updatedData;
+  };
+
+  const initiateTilopayPayment = async ({ amount, planName, currency = 'USD' }) => {
+    if (!user?.id) {
+      throw new Error('User must be logged in to initiate payment');
+    }
+
+    const personalDetails = onboardingData.personalDetails || {};
+
+    try {
+      const response = await fetch('/api/tilopay/initiate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          amount,
+          planName,
+          currency,
+          email: personalDetails.email || user.email,
+          firstName: personalDetails.fullName?.split(' ')[0] || 'Customer',
+          lastName: personalDetails.fullName?.split(' ').slice(1).join(' ') || '',
+          address: personalDetails.address?.street || '',
+          city: personalDetails.address?.city || '',
+          state: personalDetails.address?.state || '',
+          country: personalDetails.address?.country || 'CR',
+          phone: personalDetails.telephone || ''
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to initiate payment');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error initiating Tilopay payment:', error);
+      throw error;
+    }
+  };
+
+  const verifyPayment = async (paymentId) => {
+    if (!user?.id) {
+      throw new Error('User must be logged in to verify payment');
+    }
+
+    try {
+      const response = await fetch('/api/tilopay/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          paymentId,
+          userId: user.id
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to verify payment');
+      }
+
+      // If payment is completed, update onboarding data
+      if (data.success && data.status === 'completed') {
+        await completePayment({
+          plan: data.plan,
+          amount: data.amount,
+          currency: 'USD',
+          timestamp: data.updatedAt,
+          transactionId: data.transactionId,
+          orderNumber: data.orderNumber,
+          paymentMethod: 'tilopay'
+        });
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error verifying payment:', error);
+      throw error;
+    }
   };
 
   const scheduleCall = async (callDetails) => {
@@ -558,6 +639,8 @@ export function OnboardingProvider({ children }) {
     setRelocationType,
     setVisaEligibility,
     completePayment,
+    initiateTilopayPayment,
+    verifyPayment,
     scheduleCall,
     uploadDocuments,
     setCurrentStep,
