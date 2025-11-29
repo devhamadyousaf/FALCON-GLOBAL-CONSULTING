@@ -118,7 +118,7 @@ const Footer = () => {
               <div className="flex items-start space-x-3">
                 <MapPin className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                 <p className="text-gray-300 text-sm">
-                  Headquartered in Panama. Offices in Germany, Portugal, Colombia
+                  Headquartered in Panama. Offices in Germany, Portugal, Colombia, and India
                 </p>
               </div>
               <div className="flex items-center space-x-3">
