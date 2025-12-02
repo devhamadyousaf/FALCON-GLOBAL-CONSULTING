@@ -439,14 +439,11 @@ export default function OnboardingNew() {
 
   // Handle plan selection - Redirect to payment page
   const handlePlanSelection = (plan) => {
-    if (plan.name.toLowerCase() === 'diamond+') {
-      setToast({ message: 'Please contact us for Diamond+ custom pricing.', type: 'info' });
-      return;
-    }
-
     console.log('📦 Plan selected:', plan.name);
     // Redirect to dedicated payment page
-    router.push(`/payment-tilopay?plan=${plan.name.toLowerCase()}`);
+    // URL encode the plan name to handle special characters like '+'
+    const planSlug = encodeURIComponent(plan.name.toLowerCase());
+    router.push(`/payment-tilopay?plan=${planSlug}`);
   };
 
 
@@ -1554,7 +1551,7 @@ export default function OnboardingNew() {
                     },
                     {
                       name: 'Diamond+',
-                      price: 'Price negotiable',
+                      price: '$1',
                       popular: false,
                       features: [
                         'All Diamond features',

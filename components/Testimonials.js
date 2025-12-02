@@ -7,12 +7,20 @@ const Testimonials = () => {
 
   const testimonials = [
     {
-      videoSrc: '/testimonial_1.mp4',
-      thumbnail: '/testimonial_1.mp4'
-    },
-    {
       videoSrc: '/testimonial_2.mp4',
       thumbnail: '/testimonial_2.mp4'
+    },
+    {
+      videoSrc: '/testimonial_3.mp4',
+      thumbnail: '/testimonial_3.mp4'
+    },
+    {
+      videoSrc: '/testimonial_4.mp4',
+      thumbnail: '/testimonial_4.mp4'
+    },
+    {
+      videoSrc: '/testimonial_5.mp4',
+      thumbnail: '/testimonial_5.mp4'
     }
   ];
 

@@ -18,10 +18,13 @@ export default function PaymentTilopay() {
   const plans = {
     silver: { name: 'Silver', price: 299, amount: '$299' },
     gold: { name: 'Gold', price: 699, amount: '$699' },
-    diamond: { name: 'Diamond', price: 1599, amount: '$1,599' }
+    diamond: { name: 'Diamond', price: 1599, amount: '$1,599' },
+    'diamond+': { name: 'Diamond+', price: 1, amount: '$1' }
   };
 
-  const selectedPlan = plans[planParam?.toLowerCase()];
+  // Decode the plan parameter to handle URL-encoded characters like '+'
+  const decodedPlan = planParam ? decodeURIComponent(planParam).toLowerCase() : null;
+  const selectedPlan = plans[decodedPlan];
 
   // Redirect if not authenticated
   useEffect(() => {
