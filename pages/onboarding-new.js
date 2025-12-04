@@ -437,13 +437,13 @@ export default function OnboardingNew() {
   };
 
 
-  // Handle plan selection - Redirect to payment page
+  // Handle plan selection - Redirect to unified payment page (PayPal + Tilopay)
   const handlePlanSelection = (plan) => {
     console.log('📦 Plan selected:', plan.name);
-    // Redirect to dedicated payment page
+    // Redirect to unified payment page with PayPal as primary and Tilopay as fallback
     // URL encode the plan name to handle special characters like '+'
     const planSlug = encodeURIComponent(plan.name.toLowerCase());
-    router.push(`/payment-tilopay?plan=${planSlug}`);
+    router.push(`/payment-unified?plan=${planSlug}`);
   };
 
 
@@ -1697,7 +1697,7 @@ export default function OnboardingNew() {
                 </div>
 
                 <p className="text-center text-sm text-gray-500 mt-6">
-                  🔒 Secure payment powered by Tilopay. All plans include a consultation call.
+                  🔒 Secure payment powered by PayPal and Tilopay. All plans include a consultation call.
                 </p>
               </div>
             )}
