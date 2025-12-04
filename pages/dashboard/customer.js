@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { useAuth } from '../../context/AuthContext';
 import DashboardGuard from '../../components/DashboardGuard';
 import { getUserDocuments, uploadFile, listUserFiles, deleteFile } from '../../lib/storage';
+import * as gtag from '../../lib/gtag';
 import {
   Briefcase,
   FileText,
@@ -773,6 +774,108 @@ function CustomerDashboard() {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Additional Services Section - Check24 Affiliate Links */}
+        <div className="mb-8">
+          <div className="mb-6">
+            <h3 className="text-2xl font-bold text-gray-900">Additional Services</h3>
+            <p className="text-sm text-gray-600 mt-1">Explore our partner services to help you settle in Germany</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              {
+                name: 'Electricity',
+                icon: Zap,
+                url: 'https://a.check24.net/misc/click.php?pid=1161629&aid=18&deep=stromanbieter-wechseln&cat=1',
+                color: 'from-yellow-500 to-orange-500',
+                description: 'Compare electricity providers'
+              },
+              {
+                name: 'Green Energy',
+                icon: Zap,
+                url: 'https://a.check24.net/misc/click.php?pid=1161629&aid=18&deep=oekostrom&cat=5',
+                color: 'from-green-500 to-emerald-500',
+                description: 'Switch to eco-friendly energy'
+              },
+              {
+                name: 'Gas (Heating)',
+                icon: Home,
+                url: 'https://a.check24.net/misc/click.php?pid=1161629&aid=18&deep=gasanbieter-wechseln&cat=3',
+                color: 'from-orange-500 to-red-500',
+                description: 'Compare gas providers'
+              },
+              {
+                name: 'Internet',
+                icon: Wifi,
+                url: 'https://a.check24.net/misc/click.php?pid=1161629&aid=18&deep=dsl-anbieterwechsel&cat=4',
+                color: 'from-blue-500 to-cyan-500',
+                description: 'Find the best internet plans'
+              },
+              {
+                name: 'Mobile Phone',
+                icon: Smartphone,
+                url: 'https://a.check24.net/misc/click.php?pid=1161629&aid=18&deep=handytarife&cat=7',
+                color: 'from-purple-500 to-pink-500',
+                description: 'Compare mobile phone tariffs'
+              },
+              {
+                name: 'Flights',
+                icon: Plane,
+                url: 'https://a.check24.net/misc/click.php?pid=1161629&aid=18&deep=pauschalreisen-vergleich&cat=9',
+                color: 'from-sky-500 to-blue-600',
+                description: 'Book flights and holidays'
+              },
+              {
+                name: 'Rental Cars',
+                icon: Car,
+                url: 'https://a.check24.net/misc/click.php?pid=1161629&aid=18&deep=mietwagen-preisvergleich&cat=10',
+                color: 'from-red-500 to-pink-500',
+                description: 'Compare rental car prices'
+              },
+              {
+                name: 'Bank',
+                icon: Building2,
+                url: 'https://a.check24.net/misc/click.php?pid=1161629&aid=18&deep=c24bank&cat=14',
+                color: 'from-indigo-500 to-purple-600',
+                description: 'Open a German bank account'
+              }
+            ].map((service, index) => (
+              <a
+                key={index}
+                href={service.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => gtag.trackAffiliateClick(service.name)}
+                className="rounded-2xl p-6 shadow-lg border backdrop-blur-md hover:shadow-xl transition-all duration-300 group cursor-pointer hover:-translate-y-1"
+                style={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.7)',
+                  borderColor: 'rgba(255, 255, 255, 0.3)'
+                }}
+              >
+                <div className="flex flex-col items-center text-center">
+                  <div
+                    className={`w-16 h-16 rounded-full bg-gradient-to-br ${service.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}
+                  >
+                    <service.icon className="w-8 h-8 text-white" />
+                  </div>
+                  <h4 className="text-lg font-bold text-gray-900 mb-2">{service.name}</h4>
+                  <p className="text-sm text-gray-600">{service.description}</p>
+                  <div className="mt-4 flex items-center text-sm font-semibold text-blue-600 group-hover:text-blue-700">
+                    <span>Explore</span>
+                    <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </div>
+              </a>
+            ))}
+          </div>
+
+          <div className="mt-6 p-4 rounded-xl border" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', borderColor: 'rgba(59, 130, 246, 0.3)' }}>
+            <p className="text-sm text-gray-700 text-center">
+              <span className="font-semibold">💡 Tip:</span> These services are provided by our trusted partner Check24 to help you settle in Germany easily.
+            </p>
           </div>
         </div>
 

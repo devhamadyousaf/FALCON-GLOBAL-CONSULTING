@@ -1,4 +1,5 @@
 import { ArrowRight, Play, Users, Globe, Award } from 'lucide-react';
+import * as gtag from '../lib/gtag';
 
 const Hero = () => {
   return (
@@ -31,7 +32,14 @@ const Hero = () => {
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-6 mb-12 md:mb-16">
             <button
-              onClick={() => window.open('https://calendly.com/kc-orth3107/45min', '_blank')}
+              onClick={() => {
+                gtag.event({
+                  action: 'click',
+                  category: 'cta',
+                  label: 'hero_talk_to_expert'
+                });
+                window.open('https://calendly.com/kc-orth3107/45min', '_blank');
+              }}
               className="group text-white px-6 md:px-8 py-3 md:py-4 rounded-full font-semibold text-base md:text-lg transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex items-center space-x-2"
               style={{
                 background: 'linear-gradient(to right, rgba(187, 40, 44, 1), rgba(187, 40, 44, 0.8))'
@@ -46,10 +54,19 @@ const Hero = () => {
               <span>Talk to an Expert</span>
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-300" />
             </button>
-            <button className="group flex items-center space-x-2 font-semibold text-base md:text-lg transition-colors duration-300"
-                    style={{ color: 'white' }}
-                    onMouseEnter={(e) => e.target.style.color = 'rgba(255, 255, 255, 0.8)'}
-                    onMouseLeave={(e) => e.target.style.color = 'white'}>
+            <button
+              onClick={() => {
+                gtag.event({
+                  action: 'click',
+                  category: 'engagement',
+                  label: 'hero_watch_story'
+                });
+              }}
+              className="group flex items-center space-x-2 font-semibold text-base md:text-lg transition-colors duration-300"
+              style={{ color: 'white' }}
+              onMouseEnter={(e) => e.target.style.color = 'rgba(255, 255, 255, 0.8)'}
+              onMouseLeave={(e) => e.target.style.color = 'white'}
+            >
               <div className="w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300"
                    style={{
                      backgroundColor: 'rgba(251, 247, 235, 0.8)',

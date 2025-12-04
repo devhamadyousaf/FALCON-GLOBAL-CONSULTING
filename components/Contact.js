@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Mail, Phone, MapPin, Send, CheckCircle } from 'lucide-react';
+import * as gtag from '../lib/gtag';
 
 const Contact = () => {
   const [formData, setFormData] = useState({
@@ -19,6 +20,14 @@ const Contact = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    // Track contact form submission
+    gtag.event({
+      action: 'submit',
+      category: 'contact',
+      label: 'contact_form'
+    });
+
     // Here you would typically handle the form submission
     console.log('Form submitted:', formData);
     setIsSubmitted(true);
