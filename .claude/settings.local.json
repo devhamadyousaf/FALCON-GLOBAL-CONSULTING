@@ -16,7 +16,9 @@
       "Bash(taskkill:*)",
       "Bash(npx kill-port:*)",
       "Bash(grep:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(npm update:*)",
+      "Bash(npm audit:*)"
     ],
     "deny": [],
     "ask": []
