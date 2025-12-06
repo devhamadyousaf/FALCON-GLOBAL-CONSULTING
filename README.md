@@ -15,7 +15,7 @@ pnpm dev
 bun dev
 ```
 done
-I hope my edits will work and it will work IA, and it did work so yeah
+I hope my edits will work and it will work IA, and it did work so yeah, hell yeah
 Here we go again
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 But wait for some time
