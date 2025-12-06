@@ -15,7 +15,8 @@
       "Bash(findstr:*)",
       "Bash(taskkill:*)",
       "Bash(npx kill-port:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(echo:*)"
     ],
     "deny": [],
     "ask": []

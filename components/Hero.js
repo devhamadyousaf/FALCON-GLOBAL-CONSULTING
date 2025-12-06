@@ -1,7 +1,10 @@
 import { ArrowRight, Play, Users, Globe, Award } from 'lucide-react';
+import { useRouter } from 'next/router';
 import * as gtag from '../lib/gtag';
 
 const Hero = () => {
+  const router = useRouter();
+
   return (
     <section
       id="home"
@@ -38,7 +41,7 @@ const Hero = () => {
                   category: 'cta',
                   label: 'hero_talk_to_expert'
                 });
-                window.open('https://calendly.com/kc-orth3107/45min', '_blank');
+                router.push('/apply');
               }}
               className="group text-white px-6 md:px-8 py-3 md:py-4 rounded-full font-semibold text-base md:text-lg transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex items-center space-x-2"
               style={{
