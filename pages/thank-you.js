@@ -1,14 +1,12 @@
 import React from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { CheckCircle, Home, Calendar } from 'lucide-react';
+import { CheckCircle, Home } from 'lucide-react';
 
 /**
  * Thank You Page - After Form Submission
  */
 export default function ThankYouPage() {
-  // Calendly link - Update this with your actual Calendly URL
-  const calendlyUrl = process.env.NEXT_PUBLIC_CALENDLY_URL || 'https://calendly.com/your-link';
 
   return (
     <>
@@ -62,29 +60,18 @@ export default function ThankYouPage() {
                     <span className="text-white text-sm font-bold">3</span>
                   </div>
                   <div>
-                    <p className="text-gray-800 font-medium">Schedule Your Consultation</p>
-                    <p className="text-gray-600 text-sm">Book a free consultation call with our expert team.</p>
+                    <p className="text-gray-800 font-medium">Personal Consultation</p>
+                    <p className="text-gray-600 text-sm">Our team will schedule a consultation call directly with you to discuss your specific needs.</p>
                   </div>
                 </li>
               </ul>
             </div>
 
-            {/* CTA Buttons */}
+            {/* CTA Button */}
             <div className="flex flex-col gap-4">
-              {/* Calendly Button - Dark Blue */}
-              <a
-                href={calendlyUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full px-6 py-4 bg-[#1e3a8a] text-white rounded-xl font-semibold hover:bg-[#1e40af] transition-all flex items-center justify-center shadow-lg"
-              >
-                <Calendar className="w-5 h-5 mr-2" />
-                Schedule Your Free Consultation
-              </a>
-
               {/* Back to Homepage */}
               <Link href="/">
-                <button className="w-full px-6 py-4 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-all flex items-center justify-center">
+                <button className="w-full px-6 py-4 bg-[#1e3a8a] text-white rounded-xl font-semibold hover:bg-[#1e40af] transition-all flex items-center justify-center shadow-lg">
                   <Home className="w-5 h-5 mr-2" />
                   Back to Homepage
                 </button>
