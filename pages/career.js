@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
 import Header from '../components/Header';
@@ -6,6 +7,7 @@ import Footer from '../components/Footer';
 import { Briefcase, MapPin, Clock, DollarSign, ArrowRight, Search, Filter } from 'lucide-react';
 
 const Career = () => {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
 
@@ -346,7 +348,7 @@ const Career = () => {
 
             <div className="text-center">
               <button
-                onClick={() => window.open('https://calendly.com/kc-orth3107/45min', '_blank')}
+                onClick={() => router.push('/apply')}
                 className="px-8 py-4 rounded-full font-semibold text-white text-lg transition-all duration-300 hover:shadow-xl"
                 style={{ backgroundColor: 'rgba(187, 40, 44, 1)' }}
               >

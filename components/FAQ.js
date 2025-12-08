@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { useRouter } from 'next/router';
 import { Plus, Minus } from 'lucide-react';
 
 const FAQ = () => {
+  const router = useRouter();
   const [openIndex, setOpenIndex] = useState(0);
 
   const faqs = [
@@ -99,7 +101,7 @@ const FAQ = () => {
             Still have questions? We're here to help!
           </p>
           <button
-            onClick={() => window.open('https://calendly.com/kc-orth3107/45min', '_blank')}
+            onClick={() => router.push('/apply')}
             className="bg-gradient-to-r from-red-600 to-red-700 text-white px-8 py-4 rounded-full font-semibold hover:from-red-700 hover:to-red-800 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
           >
             Book your personal call

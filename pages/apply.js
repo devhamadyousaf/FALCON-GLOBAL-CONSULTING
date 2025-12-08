@@ -3,6 +3,8 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { ArrowRight, CheckCircle, Globe, User, Mail, Phone, MapPin, Briefcase, Users, Calendar } from 'lucide-react';
+import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input';
+import 'react-phone-number-input/style.css';
 
 /**
  * Lead Application Form Page
@@ -52,9 +54,9 @@ export default function ApplyPage() {
     {
       id: 'phone',
       question: 'What is your phone number?',
-      type: 'tel',
+      type: 'phone',
       icon: Phone,
-      placeholder: '+1 234 567 8900',
+      placeholder: 'Enter phone number',
       required: true,
     },
     {
@@ -157,9 +159,10 @@ export default function ApplyPage() {
     }
 
     if (field === 'phone') {
-      const phoneRegex = /^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,9}$/;
-      if (!phoneRegex.test(value.replace(/\s/g, ''))) {
-        return 'Please enter a valid phone number';
+      // Use react-phone-number-input's built-in validation
+      // This automatically validates based on the selected country
+      if (!isValidPhoneNumber(value)) {
+        return 'Please enter a valid phone number for the selected country';
       }
     }
 
@@ -251,6 +254,67 @@ export default function ApplyPage() {
     const { id, type, placeholder, options } = currentQuestion;
     const value = formData[id];
     const Icon = currentQuestion.icon;
+
+    if (type === 'phone') {
+      return (
+        <div className="relative">
+          <PhoneInput
+            international
+            defaultCountry="US"
+            value={value}
+            onChange={(phoneValue) => handleChange(id, phoneValue || '')}
+            placeholder={placeholder}
+            className="phone-input-custom"
+            countryCallingCodeEditable={false}
+            style={{
+              width: '100%',
+            }}
+          />
+          <style jsx global>{`
+            .phone-input-custom {
+              width: 100%;
+            }
+            .phone-input-custom .PhoneInputInput {
+              width: 100%;
+              padding: 16px 16px 16px 16px;
+              border: 2px solid #e5e7eb;
+              border-radius: 12px;
+              font-size: 18px;
+              outline: none;
+              transition: all 0.2s;
+            }
+            .phone-input-custom .PhoneInputInput:focus {
+              border-color: #1e3a8a;
+            }
+            .phone-input-custom .PhoneInputCountry {
+              position: absolute;
+              left: 16px;
+              top: 50%;
+              transform: translateY(-50%);
+              z-index: 10;
+            }
+            .phone-input-custom .PhoneInputInput {
+              padding-left: 80px;
+            }
+            .phone-input-custom .PhoneInputCountrySelect {
+              border: none;
+              background: transparent;
+              cursor: pointer;
+              font-size: 16px;
+              padding: 4px;
+            }
+            .phone-input-custom .PhoneInputCountrySelect:focus {
+              outline: none;
+            }
+            .phone-input-custom .PhoneInputCountryIcon {
+              width: 24px;
+              height: 18px;
+              margin-right: 8px;
+            }
+          `}</style>
+        </div>
+      );
+    }
 
     if (type === 'radio') {
       return (
