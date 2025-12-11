@@ -18,8 +18,10 @@ export default async function handler(req, res) {
       email,
       currentCountry,
       jobTitle,
+      yearsOfExperience,
       willingToInvest,
       targetCountries,
+      englishLevel,
       roleType,
       relocationType,
       timeline,
@@ -47,58 +49,133 @@ export default async function handler(req, res) {
 
     const GHL_API_URL = 'https://services.leadconnectorhq.com/contacts/';
 
-    // Prepare custom fields mapping
+    // Step 1: Fetch custom fields to get their IDs
+    console.log('📋 Fetching custom fields from GHL...');
+    const customFieldsResponse = await fetch(
+      `https://services.leadconnectorhq.com/locations/${GHL_LOCATION_ID}/customFields`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${GHL_API_KEY}`,
+          'Content-Type': 'application/json',
+          'Version': '2021-07-28',
+        },
+      }
+    );
+
+    const customFieldsData = await customFieldsResponse.json();
+
+    if (!customFieldsResponse.ok) {
+      console.error('❌ Failed to fetch custom fields:', customFieldsData);
+      return res.status(500).json({
+        error: 'Failed to fetch custom fields from GHL',
+        details: customFieldsData,
+      });
+    }
+
+    console.log('✅ Custom fields fetched:', JSON.stringify(customFieldsData, null, 2));
+
+    // Create a map of field keys to field IDs
+    const fieldKeyToId = {};
+    if (customFieldsData.customFields && Array.isArray(customFieldsData.customFields)) {
+      customFieldsData.customFields.forEach(field => {
+        // GHL returns fieldKey as "contact.current_country"
+        // We need to map both with and without the contact. prefix
+        const fieldKey = field.fieldKey || field.key;
+
+        // Store with contact. prefix (e.g., "contact.current_country")
+        fieldKeyToId[fieldKey] = field.id;
+
+        // Also store without prefix (e.g., "current_country")
+        if (fieldKey && fieldKey.startsWith('contact.')) {
+          const keyWithoutPrefix = fieldKey.replace('contact.', '');
+          fieldKeyToId[keyWithoutPrefix] = field.id;
+        }
+      });
+    }
+
+    console.log('🗺️  Field Key to ID mapping:', fieldKeyToId);
+
+    // Helper function to map form values to GHL display labels
+    const mapValueToLabel = (field, value) => {
+      const mappings = {
+        willingToInvest: {
+          'yes': 'Yes, I am aware and financially ready',
+          'no': 'No, I am not in a position to invest',
+          'maybe': 'Maybe, I need more information about costs',
+        },
+        englishLevel: {
+          '1': '1 - No English skills',
+          '2': '2 - Very basic',
+          '3': '3 - Basic',
+          '4': '4 - Elementary',
+          '5': '5 - Intermediate',
+          '6': '6 - Upper intermediate',
+          '7': '7 - Advanced',
+          '8': '8 - Very advanced',
+          '9': '9 - Near native',
+          '10': '10 - Native English speaker',
+        },
+        relocationType: {
+          'alone': 'By myself',
+          'with_family': 'With my family',
+          'undecided': 'Not sure yet',
+        },
+        timeline: {
+          '1-3_months': '1-3 months',
+          '3-6_months': '3-6 months',
+          '6-12_months': '6-12 months',
+          '12+_months': '12+ months',
+          'flexible': 'Flexible / Not sure',
+        },
+      };
+
+      return mappings[field]?.[value] || value;
+    };
+
+    // Step 2: Prepare custom fields mapping using IDs
+    // GHL requires custom field ID, not the key
     const customFields = [];
 
-    // Map form fields to GHL custom fields
-    if (currentCountry) {
-      customFields.push({
-        key: 'current_country',
-        field_value: currentCountry,
-      });
-    }
+    // Helper to add custom field if ID exists
+    const addCustomField = (fieldKey, value) => {
+      const fieldId = fieldKeyToId[fieldKey];
+      if (fieldId && value) {
+        customFields.push({
+          id: fieldId,
+          field_value: value,
+        });
+      } else if (!fieldId) {
+        console.warn(`⚠️  Custom field "${fieldKey}" not found in GHL`);
+      }
+    };
 
-    if (jobTitle) {
-      customFields.push({
-        key: 'job_title',
-        field_value: jobTitle,
-      });
-    }
+    // Question 5: Current Country
+    addCustomField('current_country', currentCountry);
 
-    if (willingToInvest) {
-      customFields.push({
-        key: 'willing_to_invest',
-        field_value: willingToInvest,
-      });
-    }
+    // Question 6: Job Title
+    addCustomField('job_title', jobTitle);
 
-    if (targetCountries) {
-      customFields.push({
-        key: 'target_countries',
-        field_value: targetCountries,
-      });
-    }
+    // Question 7: Years of Experience
+    addCustomField('years_of_experience', yearsOfExperience);
 
-    if (roleType) {
-      customFields.push({
-        key: 'role_type',
-        field_value: roleType,
-      });
-    }
+    // Question 8: Financial Investment (mapped to display label)
+    addCustomField('financial_investment_readiness', mapValueToLabel('willingToInvest', willingToInvest));
 
-    if (relocationType) {
-      customFields.push({
-        key: 'relocation_type',
-        field_value: relocationType,
-      });
-    }
+    // Question 9: Target Countries
+    addCustomField('target_countries', targetCountries);
 
-    if (timeline) {
-      customFields.push({
-        key: 'timeline',
-        field_value: timeline,
-      });
-    }
+    // Question 10: English Level (mapped to display label)
+    addCustomField('english_level', mapValueToLabel('englishLevel', englishLevel));
+
+    // Question 11: Role Type
+    addCustomField('role_type', roleType);
+
+    // Question 12: Relocation Type (mapped to display label)
+    addCustomField('relocation_type', mapValueToLabel('relocationType', relocationType));
+
+    // Question 13: Timeline (mapped to display label)
+    addCustomField('expected_timeline', mapValueToLabel('timeline', timeline));
 
     // Prepare GHL contact payload
     const contactPayload = {
@@ -107,6 +184,7 @@ export default async function handler(req, res) {
       name: `${firstName} ${lastName}`,
       email: email,
       phone: phone,
+      companyName: jobTitle, // Job Title saved as Company Name (standard GHL field)
       locationId: GHL_LOCATION_ID, // REQUIRED: Location ID
       source: 'Lead Application Form',
       customFields: customFields,
@@ -117,7 +195,10 @@ export default async function handler(req, res) {
       ],
     };
 
-    console.log('Creating GHL contact with payload:', JSON.stringify(contactPayload, null, 2));
+    console.log('🔍 DEBUG: Creating GHL contact');
+    console.log('📊 Form Data Received:', { firstName, lastName, email, phone, jobTitle, currentCountry, yearsOfExperience, willingToInvest, targetCountries, englishLevel, roleType, relocationType, timeline });
+    console.log('📤 Custom Fields Being Sent:', JSON.stringify(customFields, null, 2));
+    console.log('📦 Full Payload:', JSON.stringify(contactPayload, null, 2));
 
     // Make request to GoHighLevel API
     const response = await fetch(GHL_API_URL, {
@@ -132,8 +213,11 @@ export default async function handler(req, res) {
 
     const responseData = await response.json();
 
+    console.log('🔥 GHL API Response Status:', response.status);
+    console.log('📥 GHL Response Data:', JSON.stringify(responseData, null, 2));
+
     if (!response.ok) {
-      console.error('GHL API Error:', responseData);
+      console.error('❌ GHL API Error:', responseData);
 
       // Provide helpful error messages
       let errorMessage = 'Failed to create contact in GoHighLevel';

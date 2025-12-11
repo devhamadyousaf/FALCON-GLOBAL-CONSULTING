@@ -41,11 +41,10 @@ const Pricing = () => {
       popular: false,
       features: [
         'End-to-end global recruitment solutions',
-        'Tailored consulting for international expansion',
         'Dedicated account manager',
         'Ongoing compliance & mobility support',
         '24/7 priority support',
-        'Custom SLA agreements',
+        'Lifelong job search support',
         'Quarterly business reviews'
       ],
       bgColor: '#B9F2FF',
