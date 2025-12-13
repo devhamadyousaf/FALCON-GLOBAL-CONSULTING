@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { ArrowRight, CheckCircle, Globe, User, Mail, Phone, MapPin, Briefcase, Users, Calendar } from 'lucide-react';
+import { ArrowRight, CheckCircle, Globe, User, Mail, Phone, MapPin, Briefcase, Users, Calendar, Upload, FileText } from 'lucide-react';
 import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 
@@ -22,6 +22,7 @@ export default function ApplyPage() {
     lastName: '',
     phone: '',
     email: '',
+    cv: null,
     currentCountry: '',
     jobTitle: '',
     yearsOfExperience: '',
@@ -34,6 +35,7 @@ export default function ApplyPage() {
   });
 
   const [errors, setErrors] = useState({});
+  const [cvFile, setCvFile] = useState(null);
 
   // Form questions configuration
   const questions = [
@@ -67,6 +69,15 @@ export default function ApplyPage() {
       type: 'email',
       icon: Mail,
       placeholder: 'john.doe@example.com',
+      required: true,
+    },
+    {
+      id: 'cv',
+      question: 'Please upload your CV/Resume',
+      type: 'file',
+      icon: Upload,
+      placeholder: 'Upload your CV (PDF, DOC, DOCX)',
+      accept: '.pdf,.doc,.docx',
       required: true,
     },
     {
@@ -182,6 +193,22 @@ export default function ApplyPage() {
    * Validate current field
    */
   const validateField = (field, value) => {
+    if (field === 'cv') {
+      if (!cvFile) {
+        return 'Please upload your CV';
+      }
+      // Check file size (max 10MB)
+      if (cvFile.size > 10 * 1024 * 1024) {
+        return 'File size must be less than 10MB';
+      }
+      // Check file type
+      const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+      if (!allowedTypes.includes(cvFile.type)) {
+        return 'Please upload a PDF, DOC, or DOCX file';
+      }
+      return null;
+    }
+
     if (!value || value.trim() === '') {
       return 'This field is required';
     }
@@ -212,6 +239,21 @@ export default function ApplyPage() {
     // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: null }));
+    }
+  };
+
+  /**
+   * Handle file upload
+   */
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setCvFile(file);
+      setFormData(prev => ({ ...prev, cv: file.name }));
+      // Clear error
+      if (errors.cv) {
+        setErrors(prev => ({ ...prev, cv: null }));
+      }
     }
   };
 
@@ -253,12 +295,55 @@ export default function ApplyPage() {
     setError(null);
 
     try {
+      let cvFileUrl = null;
+
+      // Step 1: Upload CV file first if it exists
+      if (cvFile) {
+        console.log('📎 Uploading CV file...');
+
+        // Convert CV to base64
+        const cvBase64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result.split(',')[1]); // Remove data:type;base64, prefix
+          reader.onerror = reject;
+          reader.readAsDataURL(cvFile);
+        });
+
+        // Upload file to GHL
+        const uploadResponse = await fetch('/api/ghl/upload-file', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            fileData: cvBase64,
+            fileName: cvFile.name,
+            fileType: cvFile.type,
+          }),
+        });
+
+        const uploadData = await uploadResponse.json();
+
+        if (!uploadResponse.ok) {
+          throw new Error(uploadData.error || 'Failed to upload CV');
+        }
+
+        cvFileUrl = uploadData.fileUrl;
+        console.log('✅ CV uploaded successfully:', cvFileUrl);
+      }
+
+      // Step 2: Create contact with CV URL
+      const submitData = {
+        ...formData,
+        cvFileUrl: cvFileUrl, // Send the uploaded file URL instead of base64
+      };
+
       const response = await fetch('/api/ghl/create-contact', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(submitData),
       });
 
       const data = await response.json();
@@ -286,9 +371,57 @@ export default function ApplyPage() {
    * Render input field based on type
    */
   const renderInput = () => {
-    const { id, type, placeholder, options } = currentQuestion;
+    const { id, type, placeholder, options, accept } = currentQuestion;
     const value = formData[id];
     const Icon = currentQuestion.icon;
+
+    if (type === 'file') {
+      return (
+        <div className="space-y-4">
+          <div className="relative">
+            <input
+              type="file"
+              id="cv-upload"
+              accept={accept}
+              onChange={handleFileChange}
+              className="hidden"
+            />
+            <label
+              htmlFor="cv-upload"
+              className="flex flex-col items-center justify-center w-full px-6 py-12 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-[#1e3a8a] transition-all bg-gray-50 hover:bg-blue-50"
+            >
+              <Upload className="w-12 h-12 text-gray-400 mb-4" />
+              <span className="text-lg font-medium text-gray-700">
+                {cvFile ? 'Change file' : 'Click to upload'}
+              </span>
+              <span className="text-sm text-gray-500 mt-2">{placeholder}</span>
+            </label>
+          </div>
+
+          {cvFile && (
+            <div className="flex items-center p-4 bg-blue-50 border border-blue-200 rounded-xl">
+              <FileText className="w-8 h-8 text-blue-600 mr-3" />
+              <div className="flex-1">
+                <p className="font-medium text-gray-900">{cvFile.name}</p>
+                <p className="text-sm text-gray-600">
+                  {(cvFile.size / 1024).toFixed(2)} KB
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setCvFile(null);
+                  setFormData(prev => ({ ...prev, cv: null }));
+                }}
+                className="text-red-600 hover:text-red-700 font-medium text-sm"
+              >
+                Remove
+              </button>
+            </div>
+          )}
+        </div>
+      );
+    }
 
     if (type === 'phone') {
       return (

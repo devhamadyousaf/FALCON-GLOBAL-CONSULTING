@@ -46,7 +46,8 @@ export default function ServicePage() {
     limit: 10,
     location: '',
     remote: 'remote',
-    sort: 'relevant'
+    sort: 'relevant',
+    platform: 'linkedin'
   });
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
   const [requestStatus, setRequestStatus] = useState({ show: false, type: '', message: '' });
@@ -546,7 +547,8 @@ export default function ServicePage() {
         limit: parseInt(jobRequestData.limit) || 10,
         location: jobRequestData.location,
         remote: jobRequestData.remote,
-        sort: jobRequestData.sort
+        sort: jobRequestData.sort,
+        platform: jobRequestData.platform
       };
 
       console.log('Submitting job request:', requestBody);
@@ -1014,22 +1016,48 @@ export default function ServicePage() {
                           {isJobLead && item.joburl && (
                             <p className="text-sm text-gray-600">
                               <span className="font-semibold">Job URL:</span>{' '}
-                              <a 
-                                href={item.joburl} 
-                                target="_blank" 
+                              <a
+                                href={item.joburl}
+                                target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-blue-600 hover:underline"
                               >
-                                View on LinkedIn
+                                View on {item.platform ? item.platform.charAt(0).toUpperCase() + item.platform.slice(1) : 'LinkedIn'}
+                              </a>
+                            </p>
+                          )}
+                          {isJobLead && item.companylinkedinurl && item.platform === 'linkedin' && (
+                            <p className="text-sm text-gray-600">
+                              <span className="font-semibold">Company LinkedIn:</span>{' '}
+                              <a
+                                href={item.companylinkedinurl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:underline"
+                              >
+                                View Profile
+                              </a>
+                            </p>
+                          )}
+                          {isJobLead && item.companyindeedurl && item.platform === 'indeed' && (
+                            <p className="text-sm text-gray-600">
+                              <span className="font-semibold">Company Indeed:</span>{' '}
+                              <a
+                                href={item.companyindeedurl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:underline"
+                              >
+                                View Profile
                               </a>
                             </p>
                           )}
                           {isJobLead && item.companywebsite && (
                             <p className="text-sm text-gray-600">
                               <span className="font-semibold">Website:</span>{' '}
-                              <a 
-                                href={`https://${item.companywebsite}`} 
-                                target="_blank" 
+                              <a
+                                href={item.companywebsite.startsWith('http') ? item.companywebsite : `https://${item.companywebsite}`}
+                                target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-blue-600 hover:underline"
                               >
@@ -1072,9 +1100,16 @@ export default function ServicePage() {
                       </div>
 
                       <div className="ml-6 flex flex-col items-end space-y-3">
-                        <span className={`px-4 py-2 rounded-full text-xs font-semibold ${getStatusColor(status)}`}>
-                          {status.replace('_', ' ').toUpperCase()}
-                        </span>
+                        <div className="flex flex-col items-end space-y-2">
+                          <span className={`px-4 py-2 rounded-full text-xs font-semibold ${getStatusColor(status)}`}>
+                            {status.replace('_', ' ').toUpperCase()}
+                          </span>
+                          {isJobLead && item.platform && (
+                            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                              {item.platform.toUpperCase()}
+                            </span>
+                          )}
+                        </div>
                         {postedDate && (
                           <p className="text-xs text-gray-500">{postedDate}</p>
                         )}
@@ -1169,7 +1204,7 @@ export default function ServicePage() {
               onClick={() => setShowJobRequestModal(false)}
             />
             <div
-              className="relative w-full max-w-2xl rounded-2xl shadow-2xl border backdrop-blur-md z-[101]"
+              className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl border backdrop-blur-md z-[101]"
               style={{
                 backgroundColor: 'rgba(255, 255, 255, 0.95)',
                 borderColor: 'rgba(255, 255, 255, 0.3)'
@@ -1266,6 +1301,24 @@ export default function ServicePage() {
                       <option value="relevant">Most Relevant</option>
                       <option value="recent">Most Recent</option>
                       <option value="popular">Most Popular</option>
+                    </select>
+                  </div>
+
+                  {/* Platform */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Platform <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={jobRequestData.platform}
+                      onChange={(e) => setJobRequestData({ ...jobRequestData, platform: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none"
+                      style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
+                    >
+                      <option value="linkedin">LinkedIn</option>
+                      <option value="indeed">Indeed</option>
+                      <option value="naukri">Naukri</option>
+                      <option value="bayt">Bayt</option>
                     </select>
                   </div>
                 </div>

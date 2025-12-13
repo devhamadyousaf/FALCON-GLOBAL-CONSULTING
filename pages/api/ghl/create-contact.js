@@ -5,6 +5,14 @@
  * Documentation: https://marketplace.gohighlevel.com/docs/ghl/contacts/create-contact/
  */
 
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '10mb', // Set to 10MB to handle CV uploads
+    },
+  },
+};
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -16,6 +24,7 @@ export default async function handler(req, res) {
       lastName,
       phone,
       email,
+      cvFileUrl,
       currentCountry,
       jobTitle,
       yearsOfExperience,
@@ -177,6 +186,12 @@ export default async function handler(req, res) {
     // Question 13: Timeline (mapped to display label)
     addCustomField('expected_timeline', mapValueToLabel('timeline', timeline));
 
+    // Add CV URL to custom fields if provided (already uploaded via /api/ghl/upload-file)
+    if (cvFileUrl) {
+      addCustomField('cv', cvFileUrl);
+      console.log('📎 CV URL added to custom field "cv":', cvFileUrl);
+    }
+
     // Prepare GHL contact payload
     const contactPayload = {
       firstName: firstName,
@@ -192,6 +207,7 @@ export default async function handler(req, res) {
         'Lead Form',
         'Website Application',
         willingToInvest === 'yes' ? 'Ready to Invest' : 'Needs Nurturing',
+        cvFileUrl ? 'CV Uploaded' : 'No CV',
       ],
     };
 

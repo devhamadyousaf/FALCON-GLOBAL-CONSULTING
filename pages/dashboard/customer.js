@@ -231,14 +231,14 @@ function CustomerDashboard() {
   if (!user) return null;
 
   const services = [
-    { id: 'jobs', name: 'Jobs', image: '/services/vecteezy_women-searching-for-jobs-using-a-computer_1901049.jpg', color: 'from-blue-500 to-blue-600', count: 12 },
-    { id: 'visa', name: 'Visa', image: '/services/vecteezy_man-stamping-approval-of-work-finance-banking-or-investment_13007688.jpg', color: 'from-purple-500 to-purple-600', count: 3 },
-    { id: 'housing', name: 'Housing', image: '/services/vecteezy_modern-cozy-apartment-interior-living-room-with-yellow_10234252.jpg', color: 'from-green-500 to-green-600', count: 5 },
-    { id: 'flights', name: 'Flights', image: '/services/vecteezy_airplane-in-sky-background-illustration_23570288.jpg', color: 'from-red-500 to-red-600', count: 2 },
-    { id: 'rentalcars', name: 'Rental Cars', image: '/services/vecteezy_lease-rental-car-sell-buy-dealership-manager-send-car_18790261.jpg', color: 'from-yellow-500 to-yellow-600', count: 4 },
-    { id: 'banking', name: 'Banking & Insurance', image: '/services/vecteezy_businessman-using-laptop-computer-with-online-banking-and_3712754.jpg', color: 'from-indigo-500 to-indigo-600', count: 1 },
-    { id: 'wifi', name: 'WiFi & Mobile', image: '/services/vecteezy_mobile-phone-mockup-illustration_23131277.jpg', color: 'from-pink-500 to-pink-600', count: 0 },
-    { id: 'electricity', name: 'Electricity', image: '/services/vecteezy_electricity-pylon-against-the-violet-and-orange-background_2442234.jpg', color: 'from-orange-500 to-orange-600', count: 0 }
+    { id: 'jobs', name: 'Jobs', image: '/services/vecteezy_women-searching-for-jobs-using-a-computer_1901049.jpg', color: 'from-blue-500 to-blue-600', count: 12, type: 'internal' },
+    { id: 'visa', name: 'Visa', image: '/services/vecteezy_man-stamping-approval-of-work-finance-banking-or-investment_13007688.jpg', color: 'from-purple-500 to-purple-600', count: 3, type: 'internal' },
+    { id: 'housing', name: 'Housing', image: '/services/vecteezy_modern-cozy-apartment-interior-living-room-with-yellow_10234252.jpg', color: 'from-green-500 to-green-600', count: 5, type: 'internal' },
+    { id: 'flights', name: 'Flights', image: '/services/vecteezy_airplane-in-sky-background-illustration_23570288.jpg', color: 'from-red-500 to-red-600', count: 2, type: 'affiliate', url: 'https://a.check24.net/misc/click.php?pid=1161629&aid=18&deep=pauschalreisen-vergleich&cat=9' },
+    { id: 'rentalcars', name: 'Rental Cars', image: '/services/vecteezy_lease-rental-car-sell-buy-dealership-manager-send-car_18790261.jpg', color: 'from-yellow-500 to-yellow-600', count: 4, type: 'affiliate', url: 'https://a.check24.net/misc/click.php?pid=1161629&aid=18&deep=mietwagen-preisvergleich&cat=10' },
+    { id: 'banking', name: 'Banking & Insurance', image: '/services/vecteezy_businessman-using-laptop-computer-with-online-banking-and_3712754.jpg', color: 'from-indigo-500 to-indigo-600', count: 1, type: 'affiliate', url: 'https://a.check24.net/misc/click.php?pid=1161629&aid=18&deep=c24bank&cat=14' },
+    { id: 'wifi', name: 'WiFi & Mobile', image: '/services/vecteezy_mobile-phone-mockup-illustration_23131277.jpg', color: 'from-pink-500 to-pink-600', count: 0, type: 'affiliate', url: 'https://a.check24.net/misc/click.php?pid=1161629&aid=18&deep=handytarife&cat=7' },
+    { id: 'electricity', name: 'Electricity', image: '/services/vecteezy_electricity-pylon-against-the-violet-and-orange-background_2442234.jpg', color: 'from-orange-500 to-orange-600', count: 0, type: 'affiliate', url: 'https://a.check24.net/misc/click.php?pid=1161629&aid=18&deep=stromanbieter-wechseln&cat=1' }
   ];
 
   return (
@@ -399,34 +399,67 @@ function CustomerDashboard() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {services.map((service) => (
-              <div
-                key={service.id}
-                onClick={() => router.push(`/dashboard/services/${service.id}`)}
-                className="rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer border hover:border-blue-300 group backdrop-blur-md"
-                style={{
-                  backgroundColor: 'rgba(255, 255, 255, 0.7)',
-                  borderColor: 'rgba(255, 255, 255, 0.3)'
-                }}
-              >
-                <div className="relative h-48 w-full overflow-hidden">
-                  <img
-                    src={service.image}
-                    alt={service.name}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                  />
-                </div>
-                <div className="p-6">
-                  <h4 className="text-lg font-semibold text-gray-900 mb-2">{service.name}</h4>
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm text-gray-500">
-                      {service.count} {service.count === 1 ? 'item' : 'items'}
-                    </p>
-                    <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-blue-600 transition-colors" />
+            {services.map((service) => {
+              // Determine if this is an internal or external link
+              const isAffiliate = service.type === 'affiliate';
+
+              // Common card content
+              const cardContent = (
+                <>
+                  <div className="relative h-48 w-full overflow-hidden">
+                    <img
+                      src={service.image}
+                      alt={service.name}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                    />
                   </div>
+                  <div className="p-6">
+                    <h4 className="text-lg font-semibold text-gray-900 mb-2">{service.name}</h4>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-gray-500">
+                        {service.count} {service.count === 1 ? 'item' : 'items'}
+                      </p>
+                      <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-blue-600 transition-colors" />
+                    </div>
+                  </div>
+                </>
+              );
+
+              // Render as link for affiliate services
+              if (isAffiliate) {
+                return (
+                  <a
+                    key={service.id}
+                    href={service.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => gtag.trackAffiliateClick(service.name)}
+                    className="rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer border hover:border-blue-300 group backdrop-blur-md"
+                    style={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.7)',
+                      borderColor: 'rgba(255, 255, 255, 0.3)'
+                    }}
+                  >
+                    {cardContent}
+                  </a>
+                );
+              }
+
+              // Render as div with onClick for internal services
+              return (
+                <div
+                  key={service.id}
+                  onClick={() => router.push(`/dashboard/services/${service.id}`)}
+                  className="rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer border hover:border-blue-300 group backdrop-blur-md"
+                  style={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+                    borderColor: 'rgba(255, 255, 255, 0.3)'
+                  }}
+                >
+                  {cardContent}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -774,108 +807,6 @@ function CustomerDashboard() {
                 ))}
               </div>
             )}
-          </div>
-        </div>
-
-        {/* Additional Services Section - Check24 Affiliate Links */}
-        <div className="mb-8">
-          <div className="mb-6">
-            <h3 className="text-2xl font-bold text-gray-900">Additional Services</h3>
-            <p className="text-sm text-gray-600 mt-1">Explore our partner services to help you settle in Germany</p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-              {
-                name: 'Electricity',
-                icon: Zap,
-                url: 'https://a.check24.net/misc/click.php?pid=1161629&aid=18&deep=stromanbieter-wechseln&cat=1',
-                color: 'from-yellow-500 to-orange-500',
-                description: 'Compare electricity providers'
-              },
-              {
-                name: 'Green Energy',
-                icon: Zap,
-                url: 'https://a.check24.net/misc/click.php?pid=1161629&aid=18&deep=oekostrom&cat=5',
-                color: 'from-green-500 to-emerald-500',
-                description: 'Switch to eco-friendly energy'
-              },
-              {
-                name: 'Gas (Heating)',
-                icon: Home,
-                url: 'https://a.check24.net/misc/click.php?pid=1161629&aid=18&deep=gasanbieter-wechseln&cat=3',
-                color: 'from-orange-500 to-red-500',
-                description: 'Compare gas providers'
-              },
-              {
-                name: 'Internet',
-                icon: Wifi,
-                url: 'https://a.check24.net/misc/click.php?pid=1161629&aid=18&deep=dsl-anbieterwechsel&cat=4',
-                color: 'from-blue-500 to-cyan-500',
-                description: 'Find the best internet plans'
-              },
-              {
-                name: 'Mobile Phone',
-                icon: Smartphone,
-                url: 'https://a.check24.net/misc/click.php?pid=1161629&aid=18&deep=handytarife&cat=7',
-                color: 'from-purple-500 to-pink-500',
-                description: 'Compare mobile phone tariffs'
-              },
-              {
-                name: 'Flights',
-                icon: Plane,
-                url: 'https://a.check24.net/misc/click.php?pid=1161629&aid=18&deep=pauschalreisen-vergleich&cat=9',
-                color: 'from-sky-500 to-blue-600',
-                description: 'Book flights and holidays'
-              },
-              {
-                name: 'Rental Cars',
-                icon: Car,
-                url: 'https://a.check24.net/misc/click.php?pid=1161629&aid=18&deep=mietwagen-preisvergleich&cat=10',
-                color: 'from-red-500 to-pink-500',
-                description: 'Compare rental car prices'
-              },
-              {
-                name: 'Bank',
-                icon: Building2,
-                url: 'https://a.check24.net/misc/click.php?pid=1161629&aid=18&deep=c24bank&cat=14',
-                color: 'from-indigo-500 to-purple-600',
-                description: 'Open a German bank account'
-              }
-            ].map((service, index) => (
-              <a
-                key={index}
-                href={service.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => gtag.trackAffiliateClick(service.name)}
-                className="rounded-2xl p-6 shadow-lg border backdrop-blur-md hover:shadow-xl transition-all duration-300 group cursor-pointer hover:-translate-y-1"
-                style={{
-                  backgroundColor: 'rgba(255, 255, 255, 0.7)',
-                  borderColor: 'rgba(255, 255, 255, 0.3)'
-                }}
-              >
-                <div className="flex flex-col items-center text-center">
-                  <div
-                    className={`w-16 h-16 rounded-full bg-gradient-to-br ${service.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}
-                  >
-                    <service.icon className="w-8 h-8 text-white" />
-                  </div>
-                  <h4 className="text-lg font-bold text-gray-900 mb-2">{service.name}</h4>
-                  <p className="text-sm text-gray-600">{service.description}</p>
-                  <div className="mt-4 flex items-center text-sm font-semibold text-blue-600 group-hover:text-blue-700">
-                    <span>Explore</span>
-                    <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
-                  </div>
-                </div>
-              </a>
-            ))}
-          </div>
-
-          <div className="mt-6 p-4 rounded-xl border" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', borderColor: 'rgba(59, 130, 246, 0.3)' }}>
-            <p className="text-sm text-gray-700 text-center">
-              <span className="font-semibold">💡 Tip:</span> These services are provided by our trusted partner Check24 to help you settle in Germany easily.
-            </p>
           </div>
         </div>
 
