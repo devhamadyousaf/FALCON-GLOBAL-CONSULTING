@@ -177,6 +177,17 @@ export default function ServicePage() {
             } else {
               setGmailConnectionTime(parseInt(storedTime));
             }
+
+            // Show success message if just connected (from callback redirect)
+            if (router.query.gmail_connected === 'success') {
+              setRequestStatus({
+                show: true,
+                type: 'success',
+                message: `Gmail connected successfully! (${result.gmailAddress})`
+              });
+              // Clean URL
+              router.replace('/dashboard/services/jobs', undefined, { shallow: true });
+            }
           } else if (result.connected && result.isExpired) {
             // Token exists but is expired - show as disconnected
             console.log('⚠️ Gmail token is expired, showing as disconnected');
@@ -197,7 +208,7 @@ export default function ServicePage() {
     };
 
     checkGmailStatus();
-  }, [serviceId, user?.email]);
+  }, [serviceId, user?.email, router.query.gmail_connected]);
 
   // Auto-disconnect Gmail after 5 minutes of inactivity
   useEffect(() => {
@@ -211,9 +222,7 @@ export default function ServicePage() {
 
       if (elapsed >= DISCONNECT_TIMEOUT) {
         console.log('🔒 Auto-disconnecting Gmail after 5 minutes of inactivity');
-        // Clear session tokens
-        sessionStorage.removeItem('gmail_access_token');
-        sessionStorage.removeItem('gmail_refresh_token');
+        // Clear session connection time (tokens are in database)
         sessionStorage.removeItem('gmail_connection_time');
 
         // Update UI state
@@ -223,7 +232,7 @@ export default function ServicePage() {
         setRequestStatus({
           show: true,
           type: 'warning',
-          message: 'Gmail disconnected due to inactivity. Please reconnect to send applications.'
+          message: 'Gmail session expired due to inactivity. Please reconnect to send applications.'
         });
       }
     };
@@ -443,24 +452,15 @@ export default function ServicePage() {
           setGmailConnected(false);
           setGmailAccountId(null);
           setGmailAddress('');
-          sessionStorage.removeItem('gmail_access_token');
-          sessionStorage.removeItem('gmail_refresh_token');
           sessionStorage.removeItem('gmail_connection_time');
 
           throw new Error('Your Gmail session has expired. Please reconnect your Gmail account to continue.');
         }
 
         accessToken = refreshResult.access_token;
-        console.log('✅ Token refreshed successfully');
-
-        // Update sessionStorage with new token
-        sessionStorage.setItem('gmail_access_token', accessToken);
+        console.log('✅ Token refreshed successfully (tokens stored in database)');
       } else {
-        console.log('✅ Access token is still valid');
-
-        // Update sessionStorage with current tokens
-        sessionStorage.setItem('gmail_access_token', accessToken);
-        sessionStorage.setItem('gmail_refresh_token', refreshToken);
+        console.log('✅ Access token is still valid (using tokens from database)');
       }
 
       console.log('📤 Sending bulk application request with:', {

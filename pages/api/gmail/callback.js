@@ -107,9 +107,10 @@ export default async function handler(req, res) {
 
     console.log('✅ Gmail account connected successfully:', data);
     console.log('=== Gmail Callback Completed Successfully ===');
-    
-    // Redirect with tokens in URL parameters (will be removed from history immediately)
-    const redirectUrl = `/dashboard/customer?gmail_success=true&access_token=${encodeURIComponent(tokens.access_token)}&refresh_token=${encodeURIComponent(tokens.refresh_token)}`;
+
+    // Redirect without tokens in URL to prevent Supabase auth from intercepting
+    // Tokens are already saved in database and can be fetched via /api/gmail/status
+    const redirectUrl = `/dashboard/services/jobs?gmail_connected=success`;
     return res.redirect(redirectUrl);
   } catch (error) {
     console.error('❌ Gmail callback error:', error);

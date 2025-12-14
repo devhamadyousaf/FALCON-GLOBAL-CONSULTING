@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { useRouter } from 'next/router';
 import { Mail, Phone, MapPin, Send, CheckCircle } from 'lucide-react';
 import * as gtag from '../lib/gtag';
 
 const Contact = () => {
+  const router = useRouter();
   const [formData, setFormData] = useState({
     fullName: '',
     phone: '',
@@ -28,15 +30,8 @@ const Contact = () => {
       label: 'contact_form'
     });
 
-    // Here you would typically handle the form submission
-    console.log('Form submitted:', formData);
-    setIsSubmitted(true);
-
-    // Reset form after 3 seconds
-    setTimeout(() => {
-      setIsSubmitted(false);
-      setFormData({ fullName: '', phone: '', email: '', message: '' });
-    }, 3000);
+    // Redirect to apply page
+    router.push('/apply');
   };
 
   return (
@@ -112,11 +107,11 @@ const Contact = () => {
                   Book Consultation
                 </h3>
                 <button
-                  onClick={() => window.open('https://calendly.com/kc-orth3107/45min', '_blank')}
+                  onClick={() => router.push('/apply')}
                   type="button"
                   className="text-sm font-semibold text-blue-600 hover:text-blue-700 underline"
                 >
-                  Use Calendly
+                  Apply
                 </button>
               </div>
 

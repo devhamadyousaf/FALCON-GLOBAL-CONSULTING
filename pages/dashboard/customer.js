@@ -45,20 +45,9 @@ function CustomerDashboard() {
   const [uploadingFile, setUploadingFile] = useState(false);
   const [uploadStatus, setUploadStatus] = useState({ show: false, type: '', message: '' });
 
-  // Handle Gmail OAuth callback tokens
-  useEffect(() => {
-    if (router.query.gmail_success && router.query.access_token && router.query.refresh_token) {
-      // Store tokens in sessionStorage
-      sessionStorage.setItem('gmail_access_token', router.query.access_token);
-      sessionStorage.setItem('gmail_refresh_token', router.query.refresh_token);
-      
-      console.log('✅ Gmail tokens stored in sessionStorage');
-      
-      // Clean URL by removing token parameters
-      const cleanUrl = '/dashboard/customer?gmail_success=true';
-      router.replace(cleanUrl, undefined, { shallow: true });
-    }
-  }, [router.query]);
+  // Gmail connection is now handled via database
+  // Tokens are stored in gmail_accounts table and fetched via /api/gmail/status
+  // No longer storing tokens in sessionStorage from URL parameters
 
   // Fetch user documents
   useEffect(() => {

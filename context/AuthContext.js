@@ -313,9 +313,7 @@ export function AuthProvider({ children }) {
         console.error('Logout error:', error);
       }
 
-      // Clear Gmail OAuth tokens (separate from main auth)
-      sessionStorage.removeItem('gmail_access_token');
-      sessionStorage.removeItem('gmail_refresh_token');
+      // Clear Gmail session connection time (tokens are in database)
       sessionStorage.removeItem('gmail_connection_time');
       console.log('✅ Gmail session cleared');
 
@@ -327,8 +325,6 @@ export function AuthProvider({ children }) {
       console.error('Logout exception:', error);
 
       // Even if logout fails, clear everything
-      sessionStorage.removeItem('gmail_access_token');
-      sessionStorage.removeItem('gmail_refresh_token');
       sessionStorage.removeItem('gmail_connection_time');
 
       setUser(null);
