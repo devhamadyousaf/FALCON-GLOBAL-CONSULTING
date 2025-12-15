@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { ArrowRight, CheckCircle, Globe, User, Mail, Phone, MapPin, Briefcase, Users, Calendar, Upload, FileText } from 'lucide-react';
+import { ArrowRight, CheckCircle, User, Mail, Phone, Briefcase } from 'lucide-react';
 import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 
@@ -22,20 +22,11 @@ export default function ApplyPage() {
     lastName: '',
     phone: '',
     email: '',
-    cv: null,
-    currentCountry: '',
     jobTitle: '',
-    yearsOfExperience: '',
     willingToInvest: '',
-    targetCountries: '',
-    englishLevel: '',
-    roleType: '',
-    relocationType: '',
-    timeline: '',
   });
 
   const [errors, setErrors] = useState({});
-  const [cvFile, setCvFile] = useState(null);
 
   // Form questions configuration
   const questions = [
@@ -72,114 +63,22 @@ export default function ApplyPage() {
       required: true,
     },
     {
-      id: 'cv',
-      question: 'Please upload your CV/Resume',
-      type: 'file',
-      icon: Upload,
-      placeholder: 'Upload your CV (PDF, DOC, DOCX)',
-      accept: '.pdf,.doc,.docx',
-      required: true,
-    },
-    {
-      id: 'currentCountry',
-      question: 'What country do you currently reside in?',
-      type: 'text',
-      icon: Globe,
-      placeholder: 'United States',
-      required: true,
-    },
-    {
       id: 'jobTitle',
-      question: 'What is your current job title?',
+      question: 'What is your job title?',
       type: 'text',
       icon: Briefcase,
       placeholder: 'Software Engineer',
       required: true,
     },
     {
-      id: 'yearsOfExperience',
-      question: 'How many years of work experience do you have already?',
-      type: 'select',
-      icon: Briefcase,
-      options: [
-        { value: '0-1', label: '0-1 years' },
-        { value: '1-3', label: '1-3 years' },
-        { value: '3-5', label: '3-5 years' },
-        { value: '5-10', label: '5-10 years' },
-        { value: '10+', label: '10+ years' },
-      ],
-      required: true,
-    },
-    {
       id: 'willingToInvest',
-      question: 'Are you aware that relocating requires a financial investment (visa costs, relocation, etc.), and are you currently in a financial position where this investment is feasible for you?',
+      question: 'Financial Investment: Are you aware that a relocation costs money and is this move financially feasible for you?',
       type: 'radio',
       icon: CheckCircle,
       options: [
         { value: 'yes', label: 'Yes, I am aware and financially ready' },
         { value: 'no', label: 'No, I am not in a position to invest' },
         { value: 'maybe', label: 'Maybe, I need more information about costs' },
-      ],
-      required: true,
-    },
-    {
-      id: 'targetCountries',
-      question: 'Which countries or regions are you considering interesting for your career plans?',
-      type: 'textarea',
-      icon: MapPin,
-      placeholder: 'e.g., Germany, UAE, Canada...',
-      required: true,
-    },
-    {
-      id: 'englishLevel',
-      question: 'How good is your English level from 1 to 10 (1 = no skills, 10 = native English speaker)?',
-      type: 'select',
-      icon: Globe,
-      options: [
-        { value: '1', label: '1 - No English skills' },
-        { value: '2', label: '2 - Very basic' },
-        { value: '3', label: '3 - Basic' },
-        { value: '4', label: '4 - Elementary' },
-        { value: '5', label: '5 - Intermediate' },
-        { value: '6', label: '6 - Upper intermediate' },
-        { value: '7', label: '7 - Advanced' },
-        { value: '8', label: '8 - Very advanced' },
-        { value: '9', label: '9 - Near native' },
-        { value: '10', label: '10 - Native English speaker' },
-      ],
-      required: true,
-    },
-    {
-      id: 'roleType',
-      question: 'What type of role are you looking for?',
-      type: 'text',
-      icon: Briefcase,
-      placeholder: 'e.g., Full-time, Part-time, Contract...',
-      required: true,
-    },
-    {
-      id: 'relocationType',
-      question: 'Are you planning to relocate by yourself or with your family?',
-      type: 'radio',
-      icon: Users,
-      options: [
-        { value: 'alone', label: 'By myself' },
-        { value: 'with_family', label: 'With my family' },
-        { value: 'undecided', label: 'Not sure yet' },
-      ],
-      required: true,
-    },
-    {
-      id: 'timeline',
-      question: 'What is your expected timeline within which you would like to have your relocation done?',
-      type: 'select',
-      icon: Calendar,
-      options: [
-        { value: '1-3_months', label: '1-3 months' },
-        { value: '3-6_months', label: '3-6 months' },
-        { value: '6-12_months', label: '6-12 months' },
-        { value: '12+_months', label: 'More than 12 months' },
-        { value: 'flexible', label: 'Flexible timeline' },
       ],
       required: true,
     },
@@ -193,22 +92,6 @@ export default function ApplyPage() {
    * Validate current field
    */
   const validateField = (field, value) => {
-    if (field === 'cv') {
-      if (!cvFile) {
-        return 'Please upload your CV';
-      }
-      // Check file size (max 10MB)
-      if (cvFile.size > 10 * 1024 * 1024) {
-        return 'File size must be less than 10MB';
-      }
-      // Check file type
-      const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-      if (!allowedTypes.includes(cvFile.type)) {
-        return 'Please upload a PDF, DOC, or DOCX file';
-      }
-      return null;
-    }
-
     if (!value || value.trim() === '') {
       return 'This field is required';
     }
@@ -239,21 +122,6 @@ export default function ApplyPage() {
     // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: null }));
-    }
-  };
-
-  /**
-   * Handle file upload
-   */
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setCvFile(file);
-      setFormData(prev => ({ ...prev, cv: file.name }));
-      // Clear error
-      if (errors.cv) {
-        setErrors(prev => ({ ...prev, cv: null }));
-      }
     }
   };
 
@@ -295,55 +163,13 @@ export default function ApplyPage() {
     setError(null);
 
     try {
-      let cvFileUrl = null;
-
-      // Step 1: Upload CV file first if it exists
-      if (cvFile) {
-        console.log('📎 Uploading CV file...');
-
-        // Convert CV to base64
-        const cvBase64 = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result.split(',')[1]); // Remove data:type;base64, prefix
-          reader.onerror = reject;
-          reader.readAsDataURL(cvFile);
-        });
-
-        // Upload file to GHL
-        const uploadResponse = await fetch('/api/ghl/upload-file', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            fileData: cvBase64,
-            fileName: cvFile.name,
-            fileType: cvFile.type,
-          }),
-        });
-
-        const uploadData = await uploadResponse.json();
-
-        if (!uploadResponse.ok) {
-          throw new Error(uploadData.error || 'Failed to upload CV');
-        }
-
-        cvFileUrl = uploadData.fileUrl;
-        console.log('✅ CV uploaded successfully:', cvFileUrl);
-      }
-
-      // Step 2: Create contact with CV URL
-      const submitData = {
-        ...formData,
-        cvFileUrl: cvFileUrl, // Send the uploaded file URL instead of base64
-      };
-
+      // Submit contact data
       const response = await fetch('/api/ghl/create-contact', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(submitData),
+        body: JSON.stringify(formData),
       });
 
       const data = await response.json();
@@ -371,57 +197,9 @@ export default function ApplyPage() {
    * Render input field based on type
    */
   const renderInput = () => {
-    const { id, type, placeholder, options, accept } = currentQuestion;
+    const { id, type, placeholder, options } = currentQuestion;
     const value = formData[id];
     const Icon = currentQuestion.icon;
-
-    if (type === 'file') {
-      return (
-        <div className="space-y-4">
-          <div className="relative">
-            <input
-              type="file"
-              id="cv-upload"
-              accept={accept}
-              onChange={handleFileChange}
-              className="hidden"
-            />
-            <label
-              htmlFor="cv-upload"
-              className="flex flex-col items-center justify-center w-full px-6 py-12 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-[#1e3a8a] transition-all bg-gray-50 hover:bg-blue-50"
-            >
-              <Upload className="w-12 h-12 text-gray-400 mb-4" />
-              <span className="text-lg font-medium text-gray-700">
-                {cvFile ? 'Change file' : 'Click to upload'}
-              </span>
-              <span className="text-sm text-gray-500 mt-2">{placeholder}</span>
-            </label>
-          </div>
-
-          {cvFile && (
-            <div className="flex items-center p-4 bg-blue-50 border border-blue-200 rounded-xl">
-              <FileText className="w-8 h-8 text-blue-600 mr-3" />
-              <div className="flex-1">
-                <p className="font-medium text-gray-900">{cvFile.name}</p>
-                <p className="text-sm text-gray-600">
-                  {(cvFile.size / 1024).toFixed(2)} KB
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setCvFile(null);
-                  setFormData(prev => ({ ...prev, cv: null }));
-                }}
-                className="text-red-600 hover:text-red-700 font-medium text-sm"
-              >
-                Remove
-              </button>
-            </div>
-          )}
-        </div>
-      );
-    }
 
     if (type === 'phone') {
       return (
