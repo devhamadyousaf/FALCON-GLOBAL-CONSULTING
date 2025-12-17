@@ -18,7 +18,14 @@
       "Bash(grep:*)",
       "Bash(echo:*)",
       "Bash(npm update:*)",
-      "Bash(npm audit:*)"
+      "Bash(npm audit:*)",
+      "Bash(python:*)",
+      "Bash(node -e:*)",
+      "Bash(ls:*)",
+      "Bash(if [ -d \"public/lib\" ])",
+      "Bash(then echo \"public/lib exists\")",
+      "Bash(else mkdir -p public/lib)",
+      "Bash(fi)"
     ],
     "deny": [],
     "ask": []

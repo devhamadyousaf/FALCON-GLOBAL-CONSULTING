@@ -47,7 +47,12 @@ export default function ServicePage() {
     location: '',
     remote: 'remote',
     sort: 'relevant',
-    platform: 'linkedin'
+    platform: 'linkedin',
+    cities: [], // For Naukri
+    experience: 'all', // For Naukri
+    freshness: 'all', // For Naukri
+    baseUrl: 'https://www.glassdoor.com', // For Glassdoor
+    includeNoSalaryJob: false // For Glassdoor
   });
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
   const [requestStatus, setRequestStatus] = useState({ show: false, type: '', message: '' });
@@ -71,12 +76,29 @@ export default function ServicePage() {
     { id: 2, title: 'Document Required', message: 'Please upload your visa documents', time: '5h ago', type: 'warning', read: false },
     { id: 3, title: 'New Message', message: 'You have a new message from admin', time: '1d ago', type: 'info', read: false }
   ]);
+  const [naukriCities, setNaukriCities] = useState({ codeToName: {}, nameToCode: {} });
+  const [selectedCities, setSelectedCities] = useState([]);
+  const [citySearchQuery, setCitySearchQuery] = useState('');
 
   useEffect(() => {
     if (!isAuthenticated || !user) {
       router.push('/login');
     }
   }, [isAuthenticated, user, router]);
+
+  // Load Naukri city mapping
+  useEffect(() => {
+    const loadNaukriCities = async () => {
+      try {
+        const response = await fetch('/lib/naukri-cities.json');
+        const data = await response.json();
+        setNaukriCities(data);
+      } catch (error) {
+        console.error('Failed to load Naukri cities:', error);
+      }
+    };
+    loadNaukriCities();
+  }, []);
 
   // Fetch job leads when on jobs service page
   useEffect(() => {
@@ -528,30 +550,66 @@ export default function ServicePage() {
   };
 
   const handleJobRequest = async () => {
-    if (!jobRequestData.keywords || !jobRequestData.location) {
+    // Validate based on platform
+    if (!jobRequestData.keywords) {
       setRequestStatus({
         show: true,
         type: 'error',
-        message: 'Please fill in all required fields (Keywords and Location)'
+        message: 'Please enter keywords'
       });
       return;
+    }
+
+    if (jobRequestData.platform === 'naukri') {
+      if (!jobRequestData.cities || jobRequestData.cities.length === 0) {
+        setRequestStatus({
+          show: true,
+          type: 'error',
+          message: 'Please select at least one location'
+        });
+        return;
+      }
+    } else {
+      if (!jobRequestData.location) {
+        setRequestStatus({
+          show: true,
+          type: 'error',
+          message: 'Please enter a location'
+        });
+        return;
+      }
     }
 
     setIsSubmittingRequest(true);
     setRequestStatus({ show: false, type: '', message: '' });
 
     try {
+      // Build request body based on platform
       const requestBody = {
         email: user.email,
         keywords: jobRequestData.keywords,
         limit: parseInt(jobRequestData.limit) || 10,
-        location: jobRequestData.location,
-        remote: jobRequestData.remote,
-        sort: jobRequestData.sort,
         platform: jobRequestData.platform
       };
 
+      // Add platform-specific fields
+      if (jobRequestData.platform === 'naukri') {
+        requestBody.cities = jobRequestData.cities;
+        requestBody.experience = jobRequestData.experience;
+        requestBody.freshness = jobRequestData.freshness;
+      } else if (jobRequestData.platform === 'glassdoor') {
+        requestBody.location = jobRequestData.location;
+        requestBody.remote = jobRequestData.remote;
+        requestBody.baseUrl = jobRequestData.baseUrl;
+        requestBody.includeNoSalaryJob = jobRequestData.includeNoSalaryJob;
+      } else {
+        requestBody.location = jobRequestData.location;
+        requestBody.remote = jobRequestData.remote;
+        requestBody.sort = jobRequestData.sort;
+      }
+
       console.log('Submitting job request:', requestBody);
+      console.log('Cities:', jobRequestData.cities);
 
       // Use our API route instead of calling webhook directly (to avoid CORS issues)
       const response = await fetch('/api/jobs/request', {
@@ -579,8 +637,16 @@ export default function ServicePage() {
           limit: 10,
           location: '',
           remote: 'remote',
-          sort: 'relevant'
+          sort: 'relevant',
+          platform: 'linkedin',
+          cities: [],
+          experience: 'all',
+          freshness: 'all',
+          baseUrl: 'https://www.glassdoor.com',
+          includeNoSalaryJob: false
         });
+        setSelectedCities([]);
+        setCitySearchQuery('');
       } else {
         const errorMsg = result.error || result.details || 'Failed to submit request';
         console.error('API Error:', result);
@@ -1224,6 +1290,40 @@ export default function ServicePage() {
                 </div>
 
                 <div className="space-y-4">
+                  {/* Platform - Move to TOP */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Select Job Platform <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={jobRequestData.platform}
+                      onChange={(e) => {
+                        // Reset form when platform changes
+                        setJobRequestData({
+                          keywords: jobRequestData.keywords,
+                          limit: 10,
+                          location: '',
+                          remote: 'remote',
+                          sort: 'relevant',
+                          platform: e.target.value,
+                          cities: [],
+                          experience: 'all',
+                          freshness: 'all'
+                        });
+                        setSelectedCities([]);
+                        setCitySearchQuery('');
+                      }}
+                      className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                      style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
+                    >
+                      <option value="linkedin">LinkedIn</option>
+                      <option value="indeed">Indeed</option>
+                      <option value="glassdoor">Glassdoor</option>
+                      <option value="naukri">Naukri</option>
+                      <option value="bayt">Bayt</option>
+                    </select>
+                  </div>
+
                   {/* Keywords */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1239,88 +1339,245 @@ export default function ServicePage() {
                     />
                   </div>
 
-                  {/* Location */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Location <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={jobRequestData.location}
-                      onChange={(e) => setJobRequestData({ ...jobRequestData, location: e.target.value })}
-                      placeholder="e.g., United States"
-                      className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none"
-                      style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
-                    />
-                  </div>
+                  {/* Location - Hide for Naukri */}
+                  {jobRequestData.platform !== 'naukri' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Location <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={jobRequestData.location}
+                        onChange={(e) => setJobRequestData({ ...jobRequestData, location: e.target.value })}
+                        placeholder="e.g., United States"
+                        className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none"
+                        style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
+                      />
+                    </div>
+                  )}
+
+                  {/* Location (City) - Show only for Naukri */}
+                  {jobRequestData.platform === 'naukri' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Location <span className="text-red-500">*</span>
+                      </label>
+                      <div className="space-y-2">
+                        {/* Selected City Display */}
+                        {selectedCities.length > 0 && (
+                          <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-xl">
+                            <span className="text-sm font-medium text-blue-900">
+                              Selected: {selectedCities[0]}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedCities([]);
+                                setJobRequestData({
+                                  ...jobRequestData,
+                                  cities: []
+                                });
+                              }}
+                              className="ml-auto text-blue-600 hover:text-blue-800 font-bold"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        )}
+                        {/* City Search */}
+                        <input
+                          type="text"
+                          value={citySearchQuery}
+                          onChange={(e) => setCitySearchQuery(e.target.value)}
+                          onFocus={() => {
+                            // Clear selection when user starts typing new search
+                            if (selectedCities.length > 0) {
+                              setCitySearchQuery(selectedCities[0]);
+                            }
+                          }}
+                          placeholder={selectedCities.length > 0 ? "Change location..." : "Search location (e.g., Germany, Mumbai, Delhi)..."}
+                          className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none"
+                          style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
+                        />
+                        {/* City Dropdown */}
+                        {citySearchQuery && Object.keys(naukriCities.nameToCode).length > 0 && (
+                          <div className="max-h-48 overflow-y-auto border rounded-lg bg-white shadow-lg z-50 absolute w-full">
+                            {Object.keys(naukriCities.nameToCode)
+                              .filter(cityName =>
+                                cityName.toLowerCase().includes(citySearchQuery.toLowerCase())
+                              )
+                              .slice(0, 20)
+                              .map((cityName) => (
+                                <button
+                                  key={cityName}
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    const cityCode = naukriCities.nameToCode[cityName];
+                                    console.log('Selected city:', cityName, 'Code:', cityCode);
+                                    setSelectedCities([cityName]);
+                                    setJobRequestData(prev => ({
+                                      ...prev,
+                                      cities: [cityCode]
+                                    }));
+                                    setCitySearchQuery('');
+                                  }}
+                                  className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm border-b last:border-b-0"
+                                >
+                                  {cityName}
+                                </button>
+                              ))}
+                            {Object.keys(naukriCities.nameToCode).filter(cityName =>
+                              cityName.toLowerCase().includes(citySearchQuery.toLowerCase())
+                            ).length === 0 && (
+                              <div className="px-4 py-3 text-sm text-gray-500">
+                                No locations found
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Limit */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Number of Jobs
+                      Number of Jobs {jobRequestData.platform === 'naukri' && '(Max 50)'}
                     </label>
                     <input
                       type="number"
                       value={jobRequestData.limit}
                       onChange={(e) => setJobRequestData({ ...jobRequestData, limit: e.target.value })}
                       min="1"
-                      max="100"
+                      max={jobRequestData.platform === 'naukri' ? 50 : 100}
                       className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none"
                       style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
                     />
                   </div>
 
-                  {/* Remote */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Work Type
-                    </label>
-                    <select
-                      value={jobRequestData.remote}
-                      onChange={(e) => setJobRequestData({ ...jobRequestData, remote: e.target.value })}
-                      className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none"
-                      style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
-                    >
-                      <option value="remote">Remote</option>
-                      <option value="onsite">On-site</option>
-                      <option value="hybrid">Hybrid</option>
-                    </select>
-                  </div>
+                  {/* Experience - Show only for Naukri */}
+                  {jobRequestData.platform === 'naukri' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Experience Level
+                      </label>
+                      <select
+                        value={jobRequestData.experience}
+                        onChange={(e) => setJobRequestData({ ...jobRequestData, experience: e.target.value })}
+                        className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none"
+                        style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
+                      >
+                        <option value="all">All Experience Levels</option>
+                        <option value="0-1">0-1 years</option>
+                        <option value="1-3">1-3 years</option>
+                        <option value="3-5">3-5 years</option>
+                        <option value="5-10">5-10 years</option>
+                        <option value="10+">10+ years</option>
+                      </select>
+                    </div>
+                  )}
 
-                  {/* Sort */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Sort By
-                    </label>
-                    <select
-                      value={jobRequestData.sort}
-                      onChange={(e) => setJobRequestData({ ...jobRequestData, sort: e.target.value })}
-                      className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none"
-                      style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
-                    >
-                      <option value="relevant">Most Relevant</option>
-                      <option value="recent">Most Recent</option>
-                      <option value="popular">Most Popular</option>
-                    </select>
-                  </div>
+                  {/* Freshness - Show only for Naukri */}
+                  {jobRequestData.platform === 'naukri' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Job Freshness
+                      </label>
+                      <select
+                        value={jobRequestData.freshness}
+                        onChange={(e) => setJobRequestData({ ...jobRequestData, freshness: e.target.value })}
+                        className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none"
+                        style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
+                      >
+                        <option value="all">All</option>
+                        <option value="1">Last 24 hours</option>
+                        <option value="3">Last 3 days</option>
+                        <option value="7">Last 7 days</option>
+                        <option value="15">Last 15 days</option>
+                        <option value="30">Last 30 days</option>
+                      </select>
+                    </div>
+                  )}
 
-                  {/* Platform */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Platform <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={jobRequestData.platform}
-                      onChange={(e) => setJobRequestData({ ...jobRequestData, platform: e.target.value })}
-                      className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none"
-                      style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
-                    >
-                      <option value="linkedin">LinkedIn</option>
-                      <option value="indeed">Indeed</option>
-                      <option value="naukri">Naukri</option>
-                      <option value="bayt">Bayt</option>
-                    </select>
-                  </div>
+                  {/* Base URL - Show only for Glassdoor */}
+                  {jobRequestData.platform === 'glassdoor' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Glassdoor Region
+                      </label>
+                      <select
+                        value={jobRequestData.baseUrl}
+                        onChange={(e) => setJobRequestData({ ...jobRequestData, baseUrl: e.target.value })}
+                        className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none"
+                        style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
+                      >
+                        <option value="https://www.glassdoor.com">United States (glassdoor.com)</option>
+                        <option value="https://www.glassdoor.co.uk">United Kingdom (glassdoor.co.uk)</option>
+                        <option value="https://www.glassdoor.ca">Canada (glassdoor.ca)</option>
+                        <option value="https://www.glassdoor.com.au">Australia (glassdoor.com.au)</option>
+                        <option value="https://www.glassdoor.de">Germany (glassdoor.de)</option>
+                        <option value="https://www.glassdoor.fr">France (glassdoor.fr)</option>
+                        <option value="https://www.glassdoor.co.in">India (glassdoor.co.in)</option>
+                        <option value="https://www.glassdoor.com.ar">Argentina (glassdoor.com.ar)</option>
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Include No Salary Jobs - Show only for Glassdoor */}
+                  {jobRequestData.platform === 'glassdoor' && (
+                    <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-xl">
+                      <input
+                        type="checkbox"
+                        id="includeNoSalaryJob"
+                        checked={jobRequestData.includeNoSalaryJob}
+                        onChange={(e) => setJobRequestData({ ...jobRequestData, includeNoSalaryJob: e.target.checked })}
+                        className="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                      />
+                      <label htmlFor="includeNoSalaryJob" className="text-sm font-medium text-gray-700 cursor-pointer">
+                        Include jobs without salary information
+                      </label>
+                    </div>
+                  )}
+
+                  {/* Remote - Hide for Naukri */}
+                  {jobRequestData.platform !== 'naukri' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Work Type
+                      </label>
+                      <select
+                        value={jobRequestData.remote}
+                        onChange={(e) => setJobRequestData({ ...jobRequestData, remote: e.target.value })}
+                        className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none"
+                        style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
+                      >
+                        <option value="remote">Remote</option>
+                        <option value="onsite">On-site</option>
+                        <option value="hybrid">Hybrid</option>
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Sort - Hide for Naukri and Glassdoor */}
+                  {jobRequestData.platform !== 'naukri' && jobRequestData.platform !== 'glassdoor' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Sort By
+                      </label>
+                      <select
+                        value={jobRequestData.sort}
+                        onChange={(e) => setJobRequestData({ ...jobRequestData, sort: e.target.value })}
+                        className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none"
+                        style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
+                      >
+                        <option value="relevant">Most Relevant</option>
+                        <option value="recent">Most Recent</option>
+                        <option value="popular">Most Popular</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
 
                 {/* Submit Button */}
