@@ -25,7 +25,8 @@ import {
   Trash2,
   Filter,
   Download,
-  Plus
+  Plus,
+  Mail
 } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -54,6 +55,20 @@ export default function AdminDashboard() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Job Leads and Reports states
+  const [jobLeads, setJobLeads] = useState([]);
+  const [showJobLeadsModal, setShowJobLeadsModal] = useState(false);
+  const [showReportsModal, setShowReportsModal] = useState(false);
+  const [reportStats, setReportStats] = useState(null);
+  const [loadingJobLeads, setLoadingJobLeads] = useState(false);
+  const [loadingReports, setLoadingReports] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(null); // userId being updated
+  const [userJobLeads, setUserJobLeads] = useState([]); // Users with job leads count
+  const [selectedUserLeads, setSelectedUserLeads] = useState(null); // Selected user's job leads
+  const [showUserLeadsModal, setShowUserLeadsModal] = useState(false);
+  const [expandedJobId, setExpandedJobId] = useState(null); // ID of expanded job to show details
+
   useEffect(() => {
     if (!isAuthenticated || !user) {
       router.push('/login');
@@ -74,7 +89,8 @@ export default function AdminDashboard() {
         fetchRecentApplications(),
         fetchAllUsers(),
         fetchAllApplications(),
-        fetchNotifications()
+        fetchNotifications(),
+        fetchUserJobLeads()
       ]);
     } catch (error) {
       console.error('Error loading admin data:', error);
@@ -90,25 +106,25 @@ export default function AdminDashboard() {
         .from('profiles')
         .select('*', { count: 'exact', head: true });
 
-      // Active Applications
+      // Active Applications (users with onboarding complete)
       const { count: activeApplications } = await supabase
-        .from('job_applications')
+        .from('profiles')
         .select('*', { count: 'exact', head: true })
-        .in('status', ['pending', 'submitted']);
+        .eq('onboarding_complete', true);
 
-      // Total Revenue
+      // Total Revenue (sum of completed payments)
       const { data: payments } = await supabase
         .from('payments')
         .select('amount')
         .eq('status', 'completed');
-      
+
       const totalRevenue = payments?.reduce((sum, payment) => sum + Number(payment.amount || 0), 0) || 0;
 
-      // Pending Reviews (documents not verified)
+      // Pending Reviews (users with onboarding not complete)
       const { count: pendingReviews } = await supabase
-        .from('documents')
+        .from('profiles')
         .select('*', { count: 'exact', head: true })
-        .eq('verified', false);
+        .eq('onboarding_complete', false);
 
       setStats({
         totalUsers: totalUsers || 0,
@@ -249,7 +265,7 @@ export default function AdminDashboard() {
         .limit(10);
 
       if (error) throw error;
-      
+
       setNotifications(data?.map(n => ({
         id: n.id,
         title: n.title,
@@ -262,6 +278,44 @@ export default function AdminDashboard() {
       console.error('Error fetching notifications:', error);
       // Set default notifications if none found
       setNotifications([]);
+    }
+  };
+
+  const fetchUserJobLeads = async () => {
+    try {
+      // Get all profiles with their emails
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, email, full_name, avatar_url, onboarding_complete')
+        .order('created_at', { ascending: false });
+
+      if (profilesError) throw profilesError;
+
+      // Get job leads count for each user email
+      const usersWithJobLeads = await Promise.all(
+        (profiles || []).map(async (profile) => {
+          const { count } = await supabase
+            .from('Job-Leads')
+            .select('*', { count: 'exact', head: true })
+            .eq('email', profile.email);
+
+          return {
+            ...profile,
+            jobLeadsCount: count || 0
+          };
+        })
+      );
+
+      // Filter only users who have job leads and sort by count
+      const filteredUsers = usersWithJobLeads
+        .filter(u => u.jobLeadsCount > 0)
+        .sort((a, b) => b.jobLeadsCount - a.jobLeadsCount)
+        .slice(0, 5); // Get top 5 users
+
+      setUserJobLeads(filteredUsers);
+    } catch (error) {
+      console.error('Error fetching user job leads:', error);
+      setUserJobLeads([]);
     }
   };
 
@@ -369,6 +423,254 @@ export default function AdminDashboard() {
       alert('Error deleting user: ' + error.message);
     } finally {
       setDeleting(false);
+    }
+  };
+
+  // Fetch Job Leads
+  const fetchJobLeads = async () => {
+    setLoadingJobLeads(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      if (!token) {
+        throw new Error('No authentication token');
+      }
+
+      const response = await fetch('/api/admin/job-leads', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        setJobLeads(result.jobLeads || []);
+      } else {
+        console.error('Error fetching job leads:', result.error);
+        alert('Error fetching job leads');
+      }
+    } catch (error) {
+      console.error('Error fetching job leads:', error);
+      alert('Error fetching job leads: ' + error.message);
+    } finally {
+      setLoadingJobLeads(false);
+    }
+  };
+
+  // View Job Leads
+  const handleViewJobLeads = async () => {
+    setShowJobLeadsModal(true);
+    await fetchJobLeads();
+  };
+
+  // View User's Job Leads
+  const handleViewUserJobLeads = async (userEmail) => {
+    setLoadingJobLeads(true);
+    setShowUserLeadsModal(true);
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      if (!token) {
+        throw new Error('No authentication token');
+      }
+
+      const response = await fetch(`/api/admin/job-leads?email=${encodeURIComponent(userEmail)}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        setSelectedUserLeads({
+          email: userEmail,
+          jobs: result.jobLeads || []
+        });
+      } else {
+        console.error('Error fetching user job leads:', result.error);
+        alert('Error fetching user job leads');
+      }
+    } catch (error) {
+      console.error('Error fetching user job leads:', error);
+      alert('Error fetching user job leads: ' + error.message);
+    } finally {
+      setLoadingJobLeads(false);
+    }
+  };
+
+  // Fetch Statistics for Reports
+  const fetchReportStatistics = async () => {
+    console.log('=== fetchReportStatistics called ===');
+    setLoadingReports(true);
+    try {
+      console.log('Getting session...');
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      console.log('Session data:', sessionData);
+      console.log('Session error:', sessionError);
+      const token = sessionData?.session?.access_token;
+      console.log('Token available:', !!token);
+      console.log('Token length:', token?.length);
+
+      if (!token) {
+        throw new Error('No authentication token');
+      }
+
+      console.log('Fetching statistics from API...');
+      const response = await fetch('/api/admin/statistics', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      console.log('Response status:', response.status);
+      const result = await response.json();
+      console.log('Result:', result);
+
+      if (result.success) {
+        setReportStats(result.statistics);
+        console.log('Statistics loaded successfully');
+      } else {
+        console.error('Error fetching statistics:', result.error);
+        alert('Error fetching statistics: ' + result.error);
+      }
+    } catch (error) {
+      console.error('Error fetching statistics:', error);
+      alert('Error fetching statistics: ' + error.message);
+    } finally {
+      setLoadingReports(false);
+      console.log('=== fetchReportStatistics completed ===');
+    }
+  };
+
+  // View Reports
+  const handleViewReports = async () => {
+    console.log('=== handleViewReports clicked ===');
+    setShowReportsModal(true);
+    await fetchReportStatistics();
+  };
+
+  // Export Data
+  const handleExportData = async (type = 'all', format = 'json') => {
+    console.log('=== handleExportData called ===');
+    console.log('Type:', type, 'Format:', format);
+    setExporting(true);
+    try {
+      console.log('Getting session for export...');
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      console.log('Session data:', sessionData);
+      console.log('Session error:', sessionError);
+      const token = sessionData?.session?.access_token;
+      console.log('Token available:', !!token);
+      console.log('Token length:', token?.length);
+
+      if (!token) {
+        throw new Error('No authentication token');
+      }
+
+      console.log('Fetching export data from API...');
+      const response = await fetch(`/api/admin/export?type=${type}&format=${format}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Export error response:', errorData);
+        throw new Error(errorData.error || 'Export failed');
+      }
+
+      // Download the file
+      console.log('Creating download blob...');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `export_${type}_${Date.now()}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      console.log('Export completed successfully');
+      alert('Data exported successfully!');
+    } catch (error) {
+      console.error('Error exporting data:', error);
+      alert('Error exporting data: ' + error.message);
+    } finally {
+      setExporting(false);
+      console.log('=== handleExportData completed ===');
+    }
+  };
+
+  // Update User Onboarding Status
+  const handleUpdateUserStatus = async (userId, onboardingComplete) => {
+    console.log('=== handleUpdateUserStatus called ===');
+    console.log('User ID:', userId);
+    console.log('Onboarding Complete:', onboardingComplete);
+
+    setUpdatingStatus(userId);
+
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      console.log('Session data:', sessionData);
+
+      if (sessionError) {
+        console.error('Session error:', sessionError);
+        throw new Error('Failed to get session: ' + sessionError.message);
+      }
+
+      const token = sessionData?.session?.access_token;
+      console.log('Token available:', !!token);
+
+      if (!token) {
+        throw new Error('No authentication token available. Please login again.');
+      }
+
+      console.log('Making API request...');
+      const response = await fetch('/api/admin/update-user-status', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          userId,
+          onboardingComplete
+        })
+      });
+
+      console.log('Response status:', response.status);
+      const result = await response.json();
+      console.log('Response data:', result);
+
+      if (response.ok && result.success) {
+        alert(`User onboarding status updated to ${onboardingComplete ? 'Complete' : 'Incomplete'}!`);
+
+        // Refresh user lists
+        console.log('Refreshing user data...');
+        await Promise.all([
+          fetchRecentUsers(),
+          fetchAllUsers(),
+          fetchStats()
+        ]);
+        console.log('User data refreshed successfully');
+      } else {
+        console.error('Error updating user status:', result.error);
+        alert(`Error updating user status: ${result.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error updating user status:', error);
+      alert('Error updating user status: ' + error.message);
+    } finally {
+      setUpdatingStatus(null);
+      console.log('=== handleUpdateUserStatus completed ===');
     }
   };
 
@@ -710,7 +1012,17 @@ export default function AdminDashboard() {
                       }`}>
                         {userData.onboarding_complete ? 'Active' : 'Pending'}
                       </span>
-                      <button 
+                      {!userData.onboarding_complete && (
+                        <button
+                          onClick={() => handleUpdateUserStatus(userData.id, true)}
+                          disabled={updatingStatus === userData.id}
+                          className="px-3 py-1 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Mark Onboarding Complete"
+                        >
+                          {updatingStatus === userData.id ? 'Updating...' : 'Complete'}
+                        </button>
+                      )}
+                      <button
                         onClick={() => router.push(`/dashboard/admin/user/${userData.id}`)}
                         className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
                         title="View User"
@@ -720,7 +1032,7 @@ export default function AdminDashboard() {
                       <button className="p-2 hover:bg-gray-200 rounded-lg transition-colors" title="Edit User">
                         <Edit className="w-4 h-4 text-gray-600" />
                       </button>
-                      <button 
+                      <button
                         onClick={() => {
                           setUserToDelete(userData);
                           setShowDeleteModal(true);
@@ -748,12 +1060,8 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold text-gray-900 flex items-center space-x-2">
                 <FileText className="w-6 h-6 text-purple-600" />
-                <span>Recent Applications</span>
+                <span>Users with Job Leads</span>
               </h3>
-              <button className="flex items-center space-x-1 text-blue-600 hover:text-blue-700 font-medium text-sm">
-                <Filter className="w-4 h-4" />
-                <span>Filter</span>
-              </button>
             </div>
 
             <div className="space-y-4">
@@ -762,58 +1070,46 @@ export default function AdminDashboard() {
                 [1, 2, 3].map((i) => (
                   <div key={i} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl animate-pulse">
                     <div className="flex items-center space-x-4">
-                      <div className="w-10 h-10 bg-gray-200 rounded-full"></div>
+                      <div className="w-12 h-12 bg-gray-200 rounded-full"></div>
                       <div>
-                        <div className="h-4 w-32 bg-gray-200 rounded mb-2"></div>
-                        <div className="h-3 w-40 bg-gray-200 rounded"></div>
+                        <div className="h-5 w-40 bg-gray-200 rounded mb-2"></div>
+                        <div className="h-4 w-32 bg-gray-200 rounded"></div>
                       </div>
                     </div>
-                    <div className="h-6 w-20 bg-gray-200 rounded-full"></div>
+                    <div className="h-8 w-24 bg-gray-200 rounded-lg"></div>
                   </div>
                 ))
-              ) : recentApplications.length === 0 ? (
+              ) : userJobLeads.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   <FileText className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p>No applications found</p>
+                  <p>No users with job leads found</p>
                 </div>
               ) : (
-                recentApplications.map((app) => (
+                userJobLeads.map((userLead) => (
                   <div
-                    key={app.id}
-                    className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                    key={userLead.id}
+                    onClick={() => handleViewUserJobLeads(userLead.email)}
+                    className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer"
                   >
                     <div className="flex items-center space-x-4">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                        app.status === 'accepted' ? 'bg-green-100' :
-                        app.status === 'pending' || app.status === 'submitted' ? 'bg-yellow-100' : 
-                        app.status === 'rejected' ? 'bg-red-100' : 'bg-blue-100'
-                      }`}>
-                        {app.status === 'accepted' ? (
-                          <CheckCircle className="w-5 h-5 text-green-600" />
-                        ) : (app.status === 'pending' || app.status === 'submitted') ? (
-                          <Clock className="w-5 h-5 text-yellow-600" />
-                        ) : app.status === 'rejected' ? (
-                          <AlertCircle className="w-5 h-5 text-red-600" />
-                        ) : (
-                          <Activity className="w-5 h-5 text-blue-600" />
-                        )}
-                      </div>
+                      <img
+                        src={`https://ui-avatars.com/api/?name=${encodeURIComponent(userLead.full_name || userLead.email)}&background=random`}
+                        alt={userLead.full_name || userLead.email}
+                        className="w-12 h-12 rounded-full"
+                      />
                       <div>
-                        <p className="font-medium text-gray-900">{app.profiles?.full_name || 'Unknown User'}</p>
-                        <p className="text-sm text-gray-500">
-                          {app['Job-Leads']?.jobTitle || 'Job Application'} • {getTimeAgo(app.applied_at)}
-                        </p>
+                        <p className="font-semibold text-gray-900">{userLead.full_name || 'No Name'}</p>
+                        <p className="text-sm text-gray-500">{userLead.email}</p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
-                        app.status === 'accepted' ? 'bg-green-100 text-green-700' :
-                        (app.status === 'pending' || app.status === 'submitted') ? 'bg-yellow-100 text-yellow-700' :
-                        app.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                        'bg-blue-100 text-blue-700'
-                      }`}>
-                        {app.status.charAt(0).toUpperCase() + app.status.slice(1)}
-                      </span>
+                    <div className="flex items-center space-x-4">
+                      <div className="text-right">
+                        <p className="text-2xl font-bold text-purple-600">{userLead.jobLeadsCount}</p>
+                        <p className="text-xs text-gray-500">Job Leads</p>
+                      </div>
+                      <button className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium">
+                        View Jobs
+                      </button>
                     </div>
                   </div>
                 ))
@@ -838,19 +1134,24 @@ export default function AdminDashboard() {
               <Users className="w-5 h-5" />
               <span>Manage Users</span>
             </button>
-            <button className="flex items-center justify-center space-x-2 px-6 py-4 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 transition-all duration-300 shadow-lg hover:shadow-xl">
+            <button
+              onClick={handleViewReports}
+              className="flex items-center justify-center space-x-2 px-6 py-4 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 transition-all duration-300 shadow-lg hover:shadow-xl">
               <FileText className="w-5 h-5" />
               <span>View Reports</span>
             </button>
             <button
-              onClick={() => setActiveTab('content')}
+              onClick={handleViewJobLeads}
               className="flex items-center justify-center space-x-2 px-6 py-4 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-xl hover:from-purple-700 hover:to-purple-800 transition-all duration-300 shadow-lg hover:shadow-xl">
-              <Edit className="w-5 h-5" />
-              <span>Edit Content</span>
+              <FileText className="w-5 h-5" />
+              <span>View Job Leads</span>
             </button>
-            <button className="flex items-center justify-center space-x-2 px-6 py-4 bg-gradient-to-r from-orange-600 to-orange-700 text-white rounded-xl hover:from-orange-700 hover:to-orange-800 transition-all duration-300 shadow-lg hover:shadow-xl">
+            <button
+              onClick={() => handleExportData('all', 'json')}
+              disabled={exporting}
+              className="flex items-center justify-center space-x-2 px-6 py-4 bg-gradient-to-r from-orange-600 to-orange-700 text-white rounded-xl hover:from-orange-700 hover:to-orange-800 transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed">
               <Download className="w-5 h-5" />
-              <span>Export Data</span>
+              <span>{exporting ? 'Exporting...' : 'Export Data'}</span>
             </button>
           </div>
         </div>
@@ -926,7 +1227,17 @@ export default function AdminDashboard() {
                       }`}>
                         {userData.onboarding_complete ? 'Active' : 'Pending'}
                       </span>
-                      <button 
+                      {!userData.onboarding_complete && (
+                        <button
+                          onClick={() => handleUpdateUserStatus(userData.id, true)}
+                          disabled={updatingStatus === userData.id}
+                          className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Mark Onboarding Complete"
+                        >
+                          {updatingStatus === userData.id ? 'Updating...' : 'Complete'}
+                        </button>
+                      )}
+                      <button
                         onClick={() => router.push(`/dashboard/admin/user/${userData.id}`)}
                         className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
                         title="View User"
@@ -936,7 +1247,7 @@ export default function AdminDashboard() {
                       <button className="p-2 hover:bg-gray-200 rounded-lg transition-colors" title="Edit User">
                         <Edit className="w-5 h-5 text-gray-600" />
                       </button>
-                      <button 
+                      <button
                         onClick={() => {
                           setUserToDelete(userData);
                           setShowDeleteModal(true);
@@ -973,9 +1284,12 @@ export default function AdminDashboard() {
                   <Filter className="w-5 h-5" />
                   <span>Filter</span>
                 </button>
-                <button className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+                <button
+                  onClick={() => handleExportData('applications', 'json')}
+                  disabled={exporting}
+                  className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                   <Download className="w-5 h-5" />
-                  <span>Export</span>
+                  <span>{exporting ? 'Exporting...' : 'Export'}</span>
                 </button>
               </div>
             </div>
@@ -1351,6 +1665,486 @@ export default function AdminDashboard() {
                   )}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Job Leads Modal */}
+      {showJobLeadsModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200]"
+            onClick={() => !loadingJobLeads && setShowJobLeadsModal(false)}
+          />
+          <div
+            className="relative w-full max-w-6xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl border backdrop-blur-md z-[201]"
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.95)',
+              borderColor: 'rgba(255, 255, 255, 0.3)'
+            }}
+          >
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-2xl font-bold text-gray-900">Job Leads Database</h3>
+                <button
+                  onClick={() => setShowJobLeadsModal(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg"
+                >
+                  <X className="w-6 h-6 text-gray-600" />
+                </button>
+              </div>
+
+              {loadingJobLeads ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              ) : jobLeads.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <FileText className="w-16 h-16 mx-auto mb-3 opacity-50" />
+                  <p className="text-lg font-medium">No job leads found</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 gap-4">
+                    {jobLeads.map((job) => (
+                      <div
+                        key={job.id}
+                        className="p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-lg text-gray-900 mb-1">
+                              {job.jobtitle || 'No Title'}
+                            </h4>
+                            <p className="text-sm text-gray-600 mb-2">
+                              {job.companyname || 'Unknown Company'} • {job.location || 'Location not specified'}
+                            </p>
+                            <div className="flex items-center space-x-2 mb-2">
+                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                job.status === 'APPLIED' ? 'bg-green-100 text-green-700' :
+                                job.status === 'NEW' ? 'bg-blue-100 text-blue-700' :
+                                'bg-gray-100 text-gray-700'
+                              }`}>
+                                {job.status || 'UNKNOWN'}
+                              </span>
+                              {job.platform && (
+                                <span className="px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+                                  {job.platform}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-500">
+                              User: {job.email || 'No email'} • Posted: {job.postedat ? new Date(job.postedat).toLocaleDateString() : 'Unknown'}
+                            </p>
+                            {job.externalemails && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                Contacts: {job.externalemails.substring(0, 100)}...
+                              </p>
+                            )}
+                          </div>
+                          {job.joburl && (
+                            <a
+                              href={job.joburl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                            >
+                              View Job
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reports Modal */}
+      {showReportsModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200]"
+            onClick={() => !loadingReports && setShowReportsModal(false)}
+          />
+          <div
+            className="relative w-full max-w-6xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl border backdrop-blur-md z-[201]"
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.95)',
+              borderColor: 'rgba(255, 255, 255, 0.3)'
+            }}
+          >
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-2xl font-bold text-gray-900">Platform Statistics & Reports</h3>
+                <button
+                  onClick={() => setShowReportsModal(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg"
+                >
+                  <X className="w-6 h-6 text-gray-600" />
+                </button>
+              </div>
+
+              {loadingReports ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              ) : !reportStats ? (
+                <div className="text-center py-12 text-gray-500">
+                  <BarChart3 className="w-16 h-16 mx-auto mb-3 opacity-50" />
+                  <p className="text-lg font-medium">No statistics available</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Job Leads Statistics */}
+                  <div className="p-4 bg-blue-50 rounded-xl">
+                    <h4 className="font-semibold text-lg text-blue-900 mb-3">Job Leads Statistics</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="bg-white p-3 rounded-lg">
+                        <p className="text-sm text-gray-600">Total Leads</p>
+                        <p className="text-2xl font-bold text-blue-600">{reportStats.jobLeads?.total || 0}</p>
+                      </div>
+                      {Object.entries(reportStats.jobLeads?.byStatus || {}).map(([status, count]) => (
+                        <div key={status} className="bg-white p-3 rounded-lg">
+                          <p className="text-sm text-gray-600">{status}</p>
+                          <p className="text-2xl font-bold text-gray-900">{count}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-4">
+                      <p className="text-sm font-medium text-blue-900 mb-2">By Platform:</p>
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                        {Object.entries(reportStats.jobLeads?.byPlatform || {}).map(([platform, count]) => (
+                          <div key={platform} className="bg-white px-3 py-2 rounded-lg text-center">
+                            <p className="text-xs text-gray-600 uppercase">{platform}</p>
+                            <p className="text-lg font-bold text-gray-900">{count}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Users Statistics */}
+                  <div className="p-4 bg-green-50 rounded-xl">
+                    <h4 className="font-semibold text-lg text-green-900 mb-3">Users Statistics</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                      <div className="bg-white p-3 rounded-lg">
+                        <p className="text-sm text-gray-600">Total Users</p>
+                        <p className="text-2xl font-bold text-green-600">{reportStats.users?.total || 0}</p>
+                      </div>
+                      <div className="bg-white p-3 rounded-lg">
+                        <p className="text-sm text-gray-600">Admins</p>
+                        <p className="text-2xl font-bold text-gray-900">{reportStats.users?.admins || 0}</p>
+                      </div>
+                      <div className="bg-white p-3 rounded-lg">
+                        <p className="text-sm text-gray-600">Customers</p>
+                        <p className="text-2xl font-bold text-gray-900">{reportStats.users?.customers || 0}</p>
+                      </div>
+                      <div className="bg-white p-3 rounded-lg">
+                        <p className="text-sm text-gray-600">Onboarding Complete</p>
+                        <p className="text-2xl font-bold text-gray-900">{reportStats.users?.onboardingComplete || 0}</p>
+                      </div>
+                      <div className="bg-white p-3 rounded-lg">
+                        <p className="text-sm text-gray-600">Onboarding Pending</p>
+                        <p className="text-2xl font-bold text-gray-900">{reportStats.users?.onboardingPending || 0}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Applications Statistics */}
+                  <div className="p-4 bg-purple-50 rounded-xl">
+                    <h4 className="font-semibold text-lg text-purple-900 mb-3">Applications Statistics</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="bg-white p-3 rounded-lg">
+                        <p className="text-sm text-gray-600">Total Applications</p>
+                        <p className="text-2xl font-bold text-purple-600">{reportStats.applications?.total || 0}</p>
+                      </div>
+                      {Object.entries(reportStats.applications?.byStatus || {}).map(([status, count]) => (
+                        <div key={status} className="bg-white p-3 rounded-lg">
+                          <p className="text-sm text-gray-600 capitalize">{status}</p>
+                          <p className="text-2xl font-bold text-gray-900">{count}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Payments Statistics */}
+                  <div className="p-4 bg-yellow-50 rounded-xl">
+                    <h4 className="font-semibold text-lg text-yellow-900 mb-3">Payments Statistics</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="bg-white p-3 rounded-lg">
+                        <p className="text-sm text-gray-600">Total Payments</p>
+                        <p className="text-2xl font-bold text-yellow-600">{reportStats.payments?.total || 0}</p>
+                      </div>
+                      <div className="bg-white p-3 rounded-lg">
+                        <p className="text-sm text-gray-600">Total Revenue</p>
+                        <p className="text-2xl font-bold text-green-600">${(reportStats.payments?.totalRevenue || 0).toFixed(2)}</p>
+                      </div>
+                      {Object.entries(reportStats.payments?.byStatus || {}).slice(0, 2).map(([status, count]) => (
+                        <div key={status} className="bg-white p-3 rounded-lg">
+                          <p className="text-sm text-gray-600 capitalize">{status}</p>
+                          <p className="text-2xl font-bold text-gray-900">{count}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Documents Statistics */}
+                  <div className="p-4 bg-red-50 rounded-xl">
+                    <h4 className="font-semibold text-lg text-red-900 mb-3">Documents Statistics</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      <div className="bg-white p-3 rounded-lg">
+                        <p className="text-sm text-gray-600">Total Documents</p>
+                        <p className="text-2xl font-bold text-red-600">{reportStats.documents?.total || 0}</p>
+                      </div>
+                      <div className="bg-white p-3 rounded-lg">
+                        <p className="text-sm text-gray-600">Verified</p>
+                        <p className="text-2xl font-bold text-green-600">{reportStats.documents?.verified || 0}</p>
+                      </div>
+                      <div className="bg-white p-3 rounded-lg">
+                        <p className="text-sm text-gray-600">Pending Review</p>
+                        <p className="text-2xl font-bold text-yellow-600">{reportStats.documents?.pending || 0}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* User Job Leads Modal */}
+      {showUserLeadsModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200]"
+            onClick={() => !loadingJobLeads && setShowUserLeadsModal(false)}
+          />
+          <div
+            className="relative w-full max-w-6xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl border backdrop-blur-md z-[201]"
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.95)',
+              borderColor: 'rgba(255, 255, 255, 0.3)'
+            }}
+          >
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-900">Job Leads</h3>
+                  <p className="text-sm text-gray-600 mt-1">{selectedUserLeads?.email}</p>
+                </div>
+                <button
+                  onClick={() => setShowUserLeadsModal(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg"
+                >
+                  <X className="w-6 h-6 text-gray-600" />
+                </button>
+              </div>
+
+              {loadingJobLeads ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-12 h-12 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              ) : !selectedUserLeads || selectedUserLeads.jobs.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <FileText className="w-16 h-16 mx-auto mb-3 opacity-50" />
+                  <p className="text-lg font-medium">No job leads found for this user</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <p className="text-sm text-gray-600 mb-4">
+                    Total: <span className="font-semibold text-purple-600">{selectedUserLeads.jobs.length} job leads</span>
+                  </p>
+                  <div className="grid grid-cols-1 gap-4">
+                    {selectedUserLeads.jobs.map((job) => {
+                      const isExpanded = expandedJobId === job.id;
+
+                      return (
+                        <div
+                          key={job.id}
+                          className="bg-gray-50 rounded-xl overflow-hidden transition-all"
+                        >
+                          {/* Job Summary - Always Visible */}
+                          <div className="p-4 hover:bg-gray-100 transition-colors">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <h4 className="font-semibold text-lg text-gray-900 mb-1">
+                                  {job.jobtitle || 'No Title'}
+                                </h4>
+                                <p className="text-sm text-gray-600 mb-2">
+                                  {job.companyname || 'Unknown Company'} • {job.location || 'Location not specified'}
+                                </p>
+                                <div className="flex items-center space-x-2 mb-2">
+                                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                    job.status === 'APPLIED' ? 'bg-green-100 text-green-700' :
+                                    job.status === 'NEW' ? 'bg-blue-100 text-blue-700' :
+                                    'bg-gray-100 text-gray-700'
+                                  }`}>
+                                    {job.status || 'UNKNOWN'}
+                                  </span>
+                                  {job.platform && (
+                                    <span className="px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+                                      {job.platform}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-gray-500">
+                                  Posted: {job.postedat ? new Date(job.postedat).toLocaleDateString() : 'Unknown'}
+                                </p>
+                              </div>
+                              <div className="flex flex-col space-y-2 ml-4">
+                                <button
+                                  onClick={() => setExpandedJobId(isExpanded ? null : job.id)}
+                                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium flex items-center space-x-2"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                  <span>{isExpanded ? 'Hide Details' : 'View Details'}</span>
+                                </button>
+                                {job.joburl && (
+                                  <a
+                                    href={job.joburl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium text-center"
+                                  >
+                                    Open Job URL
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Expanded Details */}
+                          {isExpanded && (
+                            <div className="border-t border-gray-200 bg-white p-6">
+                              <div className="space-y-6">
+                                {/* Company Information */}
+                                {job.companyinformation && (
+                                  <div>
+                                    <h5 className="font-semibold text-gray-900 mb-2 flex items-center space-x-2">
+                                      <Activity className="w-4 h-4 text-blue-600" />
+                                      <span>Company Information</span>
+                                    </h5>
+                                    <div className="bg-blue-50 p-4 rounded-lg">
+                                      <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans">
+                                        {typeof job.companyinformation === 'string'
+                                          ? job.companyinformation
+                                          : JSON.stringify(job.companyinformation, null, 2)}
+                                      </pre>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Job Description */}
+                                {job.description && (
+                                  <div>
+                                    <h5 className="font-semibold text-gray-900 mb-2 flex items-center space-x-2">
+                                      <FileText className="w-4 h-4 text-purple-600" />
+                                      <span>Job Description</span>
+                                    </h5>
+                                    <div className="bg-purple-50 p-4 rounded-lg">
+                                      <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                                        {job.description}
+                                      </p>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Contact Information */}
+                                {(job.externalemails || job.emaildataraw || job.phonenumbersraw) && (
+                                  <div>
+                                    <h5 className="font-semibold text-gray-900 mb-2 flex items-center space-x-2">
+                                      <Mail className="w-4 h-4 text-green-600" />
+                                      <span>Contact Information</span>
+                                    </h5>
+                                    <div className="bg-green-50 p-4 rounded-lg space-y-3">
+                                      {job.externalemails && (
+                                        <div>
+                                          <p className="text-xs font-medium text-gray-600 mb-1">External Emails:</p>
+                                          <p className="text-sm text-gray-700">{job.externalemails}</p>
+                                        </div>
+                                      )}
+                                      {job.emaildataraw && (
+                                        <div>
+                                          <p className="text-xs font-medium text-gray-600 mb-1">Email Data:</p>
+                                          <pre className="text-xs text-gray-700 whitespace-pre-wrap font-mono bg-white p-2 rounded">
+                                            {typeof job.emaildataraw === 'string'
+                                              ? job.emaildataraw
+                                              : JSON.stringify(job.emaildataraw, null, 2)}
+                                          </pre>
+                                        </div>
+                                      )}
+                                      {job.phonenumbersraw && (
+                                        <div>
+                                          <p className="text-xs font-medium text-gray-600 mb-1">Phone Numbers:</p>
+                                          <pre className="text-xs text-gray-700 whitespace-pre-wrap font-mono bg-white p-2 rounded">
+                                            {typeof job.phonenumbersraw === 'string'
+                                              ? job.phonenumbersraw
+                                              : JSON.stringify(job.phonenumbersraw, null, 2)}
+                                          </pre>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Additional Details */}
+                                <div>
+                                  <h5 className="font-semibold text-gray-900 mb-2 flex items-center space-x-2">
+                                    <CheckCircle className="w-4 h-4 text-yellow-600" />
+                                    <span>Additional Details</span>
+                                  </h5>
+                                  <div className="bg-yellow-50 p-4 rounded-lg grid grid-cols-2 gap-4">
+                                    {job.companywebsite && (
+                                      <div>
+                                        <p className="text-xs font-medium text-gray-600">Company Website:</p>
+                                        <a href={`https://${job.companywebsite}`} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline">
+                                          {job.companywebsite}
+                                        </a>
+                                      </div>
+                                    )}
+                                    {job.companylinkedinurl && (
+                                      <div>
+                                        <p className="text-xs font-medium text-gray-600">LinkedIn URL:</p>
+                                        <a href={job.companylinkedinurl} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline truncate block">
+                                          {job.companylinkedinurl}
+                                        </a>
+                                      </div>
+                                    )}
+                                    {job.employeecount && (
+                                      <div>
+                                        <p className="text-xs font-medium text-gray-600">Employee Count:</p>
+                                        <p className="text-sm text-gray-700">{job.employeecount}</p>
+                                      </div>
+                                    )}
+                                    {job.applicationcount && (
+                                      <div>
+                                        <p className="text-xs font-medium text-gray-600">Application Count:</p>
+                                        <p className="text-sm text-gray-700">{job.applicationcount}</p>
+                                      </div>
+                                    )}
+                                    {job.specialities && (
+                                      <div className="col-span-2">
+                                        <p className="text-xs font-medium text-gray-600">Specialities:</p>
+                                        <p className="text-sm text-gray-700">{job.specialities}</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

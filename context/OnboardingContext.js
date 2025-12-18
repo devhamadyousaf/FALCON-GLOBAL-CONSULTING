@@ -81,6 +81,9 @@ export function OnboardingProvider({ children }) {
             return;
           } catch (e) {
             console.error('Error parsing localStorage:', e);
+            // Clear corrupted data and fallback to database
+            console.warn('🧹 Clearing corrupted localStorage and loading from database...');
+            localStorage.removeItem('onboarding_data');
           }
         }
       }

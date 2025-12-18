@@ -39,7 +39,7 @@ export default async function handler(req, res) {
       indeed: 'https://etgstkql.rcld.app/webhook/2fb57d56-1fb1-4fef-ac15-fae2424f464b',
       naukri: 'https://etgstkql.rcld.app/webhook/017c1918-c18e-40cf-a49d-00aa83dfa303',
       glassdoor: 'https://etgstkql.rcld.app/webhook/04184337-755f-4fe6-9e61-2e9a513f58aa',
-      bayt: 'https://etgstkql.rcld.app/webhook/bayt-webhook-id' // TODO: Add actual webhook URL
+      bayt: 'https://etgstkql.rcld.app/webhook/5ab28852-8ba9-4fac-a012-ea4f0cc433d0'
     };
 
     // Get the webhook URL based on platform

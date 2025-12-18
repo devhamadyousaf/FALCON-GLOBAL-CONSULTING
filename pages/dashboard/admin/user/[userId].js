@@ -264,6 +264,44 @@ export default function UserDetailPage() {
     }
   };
 
+  // Update User Onboarding Status
+  const handleUpdateUserStatus = async (onboardingComplete) => {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      if (!token) {
+        throw new Error('No authentication token');
+      }
+
+      const response = await fetch('/api/admin/update-user-status', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          userId,
+          onboardingComplete
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        alert(`User onboarding status updated to ${onboardingComplete ? 'Complete' : 'Incomplete'}!`);
+        // Reload user data to reflect changes
+        await loadUserData();
+      } else {
+        console.error('Error updating user status:', result.error);
+        alert('Error updating user status');
+      }
+    } catch (error) {
+      console.error('Error updating user status:', error);
+      alert('Error updating user status: ' + error.message);
+    }
+  };
+
   if (!currentUser || currentUser.role !== 'admin') return null;
 
   if (loading) {
@@ -356,10 +394,30 @@ export default function UserDetailPage() {
               </div>
             </div>
             <div className="flex items-center space-x-3">
+              {!userData.onboarding_complete && (
+                <button
+                  onClick={() => handleUpdateUserStatus(true)}
+                  className="px-6 py-3 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors font-medium flex items-center space-x-2"
+                  title="Mark Onboarding Complete"
+                >
+                  <CheckCircle className="w-5 h-5" />
+                  <span>Complete Onboarding</span>
+                </button>
+              )}
+              {userData.onboarding_complete && (
+                <button
+                  onClick={() => handleUpdateUserStatus(false)}
+                  className="px-6 py-3 rounded-lg bg-yellow-600 text-white hover:bg-yellow-700 transition-colors font-medium flex items-center space-x-2"
+                  title="Mark Onboarding Incomplete"
+                >
+                  <Clock className="w-5 h-5" />
+                  <span>Mark Pending</span>
+                </button>
+              )}
               <button className="p-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors">
                 <Edit className="w-5 h-5" />
               </button>
-              <button 
+              <button
                 onClick={() => setShowDeleteModal(true)}
                 className="p-3 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"
                 title="Delete User"

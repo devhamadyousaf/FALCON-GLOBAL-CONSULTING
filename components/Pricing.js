@@ -11,10 +11,11 @@ const Pricing = () => {
       price: '$299',
       popular: false,
       features: [
-        'Career consultation & CV review',
+        'Automated job search (until job is found)',
+        'CV optimization',
         'Basic relocation guidance',
-        'Email support',
-        'Initial consultation call',
+        'Email customer support',
+        'Initial call consultation',
         'Resource documentation'
       ],
       bgColor: '#C0C0C0',
@@ -25,12 +26,12 @@ const Pricing = () => {
       price: '$699',
       popular: true,
       features: [
+        'All silver services included',
+        'PLUS:',
+        'Automated job search with 2nd chance during probationary period',
         'Full relocation assistance',
-        'Priority support',
-        'Documentation & help',
-        'Job placement support',
-        'Cultural orientation',
-        '30-day follow-up support'
+        'Priority customer support',
+        'Job placement support'
       ],
       bgColor: '#FFD700',
       borderColor: '#DAA520'
@@ -40,12 +41,11 @@ const Pricing = () => {
       price: '$1,599',
       popular: false,
       features: [
-        'End-to-end global recruitment solutions',
+        'All gold services included',
+        'PLUS:',
+        'Lifelong automated job search',
         'Dedicated account manager',
-        'Ongoing compliance & mobility support',
-        '24/7 priority support',
-        'Lifelong job search support',
-        'Quarterly business reviews'
+        '24/7 priority support'
       ],
       bgColor: '#B9F2FF',
       borderColor: '#4A90E2'
