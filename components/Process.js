@@ -1,5 +1,6 @@
 import { MessageCircle, Settings, Rocket, Handshake, ArrowRight, Infinity } from 'lucide-react';
 import { useRouter } from 'next/router';
+import { Fragment } from 'react';
 
 const Process = () => {
   const router = useRouter();
@@ -56,8 +57,8 @@ const Process = () => {
           {/* Desktop View - Single Line with Flex */}
           <div className="hidden lg:flex items-center justify-center gap-4">
             {steps.map((step, index) => (
-              <>
-                <div key={index} className="relative group flex-shrink-0" style={{ width: '220px' }}>
+              <Fragment key={index}>
+                <div className="relative group flex-shrink-0" style={{ width: '220px' }}>
                   {/* Step Card */}
                   <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 relative z-10 h-full flex flex-col">
                     {/* Icon */}
@@ -85,11 +86,11 @@ const Process = () => {
 
                 {/* Arrow between steps */}
                 {index < steps.length - 1 && (
-                  <div key={`arrow-${index}`} className="flex items-center justify-center flex-shrink-0">
+                  <div className="flex items-center justify-center flex-shrink-0">
                     <ArrowRight className="w-8 h-8" style={{ color: 'rgba(0, 50, 83, 1)' }} />
                   </div>
                 )}
-              </>
+              </Fragment>
             ))}
 
             {/* Infinity symbol after all steps */}

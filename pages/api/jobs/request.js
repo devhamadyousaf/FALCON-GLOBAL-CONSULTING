@@ -1,3 +1,11 @@
+import { createClient } from '@supabase/supabase-js';
+
+// Initialize Supabase client with service role for bypassing RLS
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -7,7 +15,21 @@ export default async function handler(req, res) {
     console.log('=== Job Request API Called ===');
     console.log('Request body:', req.body);
 
-    const { email, keywords, limit, location, remote, sort, platform, cities, experience, freshness } = req.body;
+    const { 
+      email, 
+      user_id, 
+      keywords, 
+      limit, 
+      location, 
+      remote, 
+      sort, 
+      platform, 
+      cities, 
+      experience, 
+      freshness,
+      cv_id,
+      cover_letter_id
+    } = req.body;
 
     // Validate required fields based on platform
     if (!email || !keywords) {
@@ -33,103 +55,79 @@ export default async function handler(req, res) {
       });
     }
 
-    // Define webhook URLs for each platform
-    const webhookUrls = {
-      linkedin: 'https://etgstkql.rcld.app/webhook/9ce7564c-363b-477c-8c26-297e208d0806',
-      indeed: 'https://etgstkql.rcld.app/webhook/2fb57d56-1fb1-4fef-ac15-fae2424f464b',
-      naukri: 'https://etgstkql.rcld.app/webhook/017c1918-c18e-40cf-a49d-00aa83dfa303',
-      glassdoor: 'https://etgstkql.rcld.app/webhook/04184337-755f-4fe6-9e61-2e9a513f58aa',
-      bayt: 'https://etgstkql.rcld.app/webhook/5ab28852-8ba9-4fac-a012-ea4f0cc433d0'
-    };
+    // Check for active campaigns (only 1 allowed at a time)
+    const { data: activeCampaigns, error: checkError } = await supabase
+      .from('job_campaigns')
+      .select('id, title, status')
+      .eq('user_email', email)
+      .in('status', ['pending', 'processing']);
 
-    // Get the webhook URL based on platform
-    const selectedPlatform = platform || 'linkedin';
-    const webhookUrl = webhookUrls[selectedPlatform];
-
-    if (!webhookUrl) {
-      return res.status(400).json({
-        error: `Invalid platform: ${selectedPlatform}`
+    if (checkError) {
+      console.error('Error checking active campaigns:', checkError);
+      return res.status(500).json({
+        error: 'Failed to check active campaigns',
+        details: checkError.message
       });
     }
 
-    // Prepare the request body for the webhook based on platform
-    let webhookData;
+    if (activeCampaigns && activeCampaigns.length > 0) {
+      return res.status(400).json({
+        error: 'You already have an active campaign running. Please wait for it to complete.',
+        activeCampaign: activeCampaigns[0]
+      });
+    }
 
+    // Prepare campaign data
+    const selectedPlatform = platform || 'indeed';
+    const campaignTitle = `${keywords} - ${location || cities?.join(', ') || 'Multiple locations'}`;
+    
+    const campaignData = {
+      user_email: email,
+      user_id: user_id || null,
+      title: campaignTitle,
+      keywords: keywords,
+      job_limit: parseInt(limit) || 10,
+      platform: selectedPlatform,
+      status: 'pending',
+      cv_id: cv_id || null,
+      cover_letter_id: cover_letter_id || null
+    };
+
+    // Add platform-specific fields
     if (selectedPlatform === 'naukri') {
-      // Naukri-specific format
-      webhookData = {
-        cities: cities, // Array of city codes
-        experience: experience || 'all',
-        freshness: freshness || 'all',
-        keyword: keywords,
-        maxJobs: parseInt(limit) || 50,
-        email // Add email for identification
-      };
-    } else if (selectedPlatform === 'glassdoor') {
-      // Glassdoor-specific format
-      webhookData = {
-        baseUrl: req.body.baseUrl || "https://www.glassdoor.com",
-        includeNoSalaryJob: req.body.includeNoSalaryJob !== undefined ? req.body.includeNoSalaryJob : false,
-        keyword: keywords,
-        location: location,
-        maxItems: parseInt(limit) || 10,
-        proxy: {
-          useApifyProxy: true,
-          apifyProxyGroups: ["RESIDENTIAL"]
-        },
-        remoteWorkType: remote === 'remote' ? true : false,
-        email // Add email for identification
-      };
+      campaignData.location = cities?.join(', ') || '';
+      campaignData.cities = cities;
+      campaignData.experience = experience || 'all';
+      campaignData.freshness = freshness || 'all';
     } else {
-      // LinkedIn/Indeed format
-      webhookData = {
-        email,
-        keywords,
-        limit: parseInt(limit) || 10,
-        location,
-        remote: remote || 'remote',
-        sort: sort || 'relevant',
-        platform: selectedPlatform
-      };
+      campaignData.location = location;
+      campaignData.remote = remote || 'remote';
+      campaignData.sort = sort || 'relevant';
     }
 
-    console.log('Sending job request to webhook:', webhookData);
-    console.log('Webhook URL:', webhookUrl);
+    console.log('💾 Saving campaign to database:', campaignData);
 
-    // Make the request to the external webhook
-    const response = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(webhookData)
-    });
+    // Save campaign to database
+    const { data: campaign, error: insertError } = await supabase
+      .from('job_campaigns')
+      .insert([campaignData])
+      .select()
+      .single();
 
-    console.log('Webhook response status:', response.status);
-
-    // Try to get response text first
-    const responseText = await response.text();
-    console.log('Webhook response text:', responseText);
-
-    let data = {};
-    try {
-      data = responseText ? JSON.parse(responseText) : {};
-    } catch (e) {
-      console.log('Response is not JSON, using text response');
-      data = { message: responseText };
+    if (insertError) {
+      console.error('Database insert error:', insertError);
+      return res.status(500).json({
+        error: 'Failed to save campaign',
+        details: insertError.message
+      });
     }
 
-    if (!response.ok) {
-      console.error('Webhook error:', data);
-      throw new Error(`Webhook returned ${response.status}: ${responseText}`);
-    }
-
-    console.log('Webhook success:', data);
+    console.log('✅ Campaign saved successfully:', campaign);
 
     return res.status(200).json({ 
       success: true, 
-      message: 'Job request submitted successfully',
-      data 
+      message: 'Campaign created successfully',
+      campaign: campaign
     });
 
   } catch (error) {

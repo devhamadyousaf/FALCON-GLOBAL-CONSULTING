@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../context/AuthContext';
 import DashboardGuard from '../../components/DashboardGuard';
-import { getUserDocuments, uploadFile, listUserFiles, deleteFile } from '../../lib/storage';
+import { getUserDocuments, uploadFile, listUserFiles, deleteFile, uploadDocument, STORAGE_BUCKETS, DOCUMENT_TYPES } from '../../lib/storage';
 import * as gtag from '../../lib/gtag';
 import {
   Briefcase,
@@ -30,7 +30,7 @@ import {
 
 function CustomerDashboard() {
   const router = useRouter();
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, logout, isAuthenticated, loading: authLoading } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [documents, setDocuments] = useState([]);
@@ -44,6 +44,13 @@ function CustomerDashboard() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [uploadStatus, setUploadStatus] = useState({ show: false, type: '', message: '' });
+  const [documentFiles, setDocumentFiles] = useState({
+    passport: null,
+    educationalCertificates: [],
+    experienceLetters: [],
+    jobOffer: null
+  });
+  const [uploadingDocuments, setUploadingDocuments] = useState(false);
 
   // Gmail connection is now handled via database
   // Tokens are stored in gmail_accounts table and fetched via /api/gmail/status
@@ -52,59 +59,59 @@ function CustomerDashboard() {
   // Fetch user documents
   useEffect(() => {
     const fetchDocuments = async () => {
-      if (user?.id) {
-        setLoadingDocuments(true);
-        const result = await getUserDocuments(user.id);
-        if (result.success) {
-          console.log('📄 User documents loaded:', result.documents);
-          setDocuments(result.documents);
-        } else {
-          console.error('❌ Error loading documents:', result.error);
-        }
-        setLoadingDocuments(false);
+      if (authLoading || !user?.id) return;
+      
+      setLoadingDocuments(true);
+      const result = await getUserDocuments(user.id);
+      if (result.success) {
+        console.log('📄 User documents loaded:', result.documents);
+        setDocuments(result.documents);
+      } else {
+        console.error('❌ Error loading documents:', result.error);
       }
+      setLoadingDocuments(false);
     };
 
     fetchDocuments();
-  }, [user?.id]);
+  }, [user?.id, authLoading]);
 
   // Fetch CVs
   useEffect(() => {
     const fetchCvs = async () => {
-      if (user?.id) {
-        setLoadingCvs(true);
-        const result = await listUserFiles(user.id, 'cvs');
-        if (result.success) {
-          console.log('📄 CVs loaded:', result.files);
-          setCvs(result.files || []);
-        } else {
-          console.error('❌ Error loading CVs:', result.error);
-        }
-        setLoadingCvs(false);
+      if (authLoading || !user?.id) return;
+      
+      setLoadingCvs(true);
+      const result = await listUserFiles(user.id, 'cvs');
+      if (result.success) {
+        console.log('📄 CVs loaded:', result.files);
+        setCvs(result.files || []);
+      } else {
+        console.error('❌ Error loading CVs:', result.error);
       }
+      setLoadingCvs(false);
     };
 
     fetchCvs();
-  }, [user?.id]);
+  }, [user?.id, authLoading]);
 
   // Fetch Cover Letters
   useEffect(() => {
     const fetchCoverLetters = async () => {
-      if (user?.id) {
-        setLoadingCoverLetters(true);
-        const result = await listUserFiles(user.id, 'cover-letters');
-        if (result.success) {
-          console.log('📄 Cover letters loaded:', result.files);
-          setCoverLetters(result.files || []);
-        } else {
-          console.error('❌ Error loading cover letters:', result.error);
-        }
-        setLoadingCoverLetters(false);
+      if (authLoading || !user?.id) return;
+      
+      setLoadingCoverLetters(true);
+      const result = await listUserFiles(user.id, 'cover-letters');
+      if (result.success) {
+        console.log('📄 Cover letters loaded:', result.files);
+        setCoverLetters(result.files || []);
+      } else {
+        console.error('❌ Error loading cover letters:', result.error);
       }
+      setLoadingCoverLetters(false);
     };
 
     fetchCoverLetters();
-  }, [user?.id]);
+  }, [user?.id, authLoading]);
 
   const handleFileUpload = async () => {
     if (!selectedFile) {
@@ -510,81 +517,401 @@ function CustomerDashboard() {
                 <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
                 <p className="text-sm text-gray-500">Loading documents...</p>
               </div>
-            ) : documents.length === 0 ? (
-              <div className="text-center py-8">
-                <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-sm font-medium text-gray-700">No documents uploaded yet</p>
-                <p className="text-xs text-gray-500 mt-1">Upload documents during onboarding</p>
-              </div>
             ) : (
-              <div className="space-y-3">
-                {documents.map((doc) => (
-                  <div
-                    key={doc.id}
-                    className="border rounded-xl p-4 hover:border-blue-500 transition-all hover:shadow-md"
-                    style={{
-                      backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                      borderColor: 'rgba(200, 200, 200, 0.5)'
-                    }}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start space-x-3 flex-1">
-                        <div className="mt-1">
-                          <FileText className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">
-                            {doc.file_name}
-                          </p>
-                          <div className="flex items-center space-x-3 mt-1">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 capitalize">
-                              {doc.document_type.replace('_', ' ')}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              {new Date(doc.uploaded_at).toLocaleDateString()}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              {(doc.file_size / 1024).toFixed(1)} KB
-                            </span>
+              <>
+                {/* Existing Documents */}
+                {documents.length > 0 && (
+                  <div className="space-y-3 mb-6">
+                    {documents.map((doc) => (
+                      <div
+                        key={doc.id}
+                        className="border rounded-xl p-4 hover:border-blue-500 transition-all hover:shadow-md"
+                        style={{
+                          backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                          borderColor: 'rgba(200, 200, 200, 0.5)'
+                        }}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start space-x-3 flex-1">
+                            <div className="mt-1">
+                              <FileText className="w-5 h-5 text-blue-600" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 truncate">
+                                {doc.file_name}
+                              </p>
+                              <div className="flex items-center space-x-3 mt-1">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 capitalize">
+                                  {doc.document_type.replace('_', ' ')}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  {new Date(doc.uploaded_at).toLocaleDateString()}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  {(doc.file_size / 1024).toFixed(1)} KB
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2 ml-4">
+                            <button
+                              onClick={() => {
+                                const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/documents/${doc.file_path}`;
+                                window.open(publicUrl, '_blank');
+                              }}
+                              className="p-2 rounded-lg hover:bg-blue-50 transition-colors"
+                              title="View document"
+                            >
+                              <Eye className="w-4 h-4 text-blue-600" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/documents/${doc.file_path}`;
+                                const link = document.createElement('a');
+                                link.href = publicUrl;
+                                link.download = doc.file_name;
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                              }}
+                              className="p-2 rounded-lg hover:bg-green-50 transition-colors"
+                              title="Download document"
+                            >
+                              <Download className="w-4 h-4 text-green-600" />
+                            </button>
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2 ml-4">
-                        <button
-                          onClick={() => {
-                            // Open document in new tab
-                            const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/documents/${doc.file_path}`;
-                            window.open(publicUrl, '_blank');
-                          }}
-                          className="p-2 rounded-lg hover:bg-blue-50 transition-colors"
-                          title="View document"
-                        >
-                          <Eye className="w-4 h-4 text-blue-600" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            // Download document
-                            const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/documents/${doc.file_path}`;
-                            const link = document.createElement('a');
-                            link.href = publicUrl;
-                            link.download = doc.file_name;
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
-                          }}
-                          className="p-2 rounded-lg hover:bg-green-50 transition-colors"
-                          title="Download document"
-                        >
-                          <Download className="w-4 h-4 text-green-600" />
-                        </button>
-                      </div>
-                    </div>
+                    ))}
                   </div>
-                ))}
+                )}
+
+                {/* Check for missing documents */}
+                {(() => {
+                  const hasPassport = documents.some(doc => doc.document_type === 'passport');
+                  const hasCertificate = documents.some(doc => doc.document_type === 'certificate');
+                  const hasExperience = documents.some(doc => doc.document_type === 'experience');
+                  const hasJobOffer = documents.some(doc => doc.document_type === 'job_offer');
+                  
+                  const missingDocs = !hasPassport || !hasCertificate || !hasExperience || !hasJobOffer;
+
+                  if (!missingDocs) return null;
+
+                  return (
+                    <div className="py-4 border-t border-gray-200">
+                      <div className="mb-4">
+                        <p className="text-sm font-semibold text-gray-700 mb-1">Upload Missing Documents</p>
+                        <p className="text-xs text-gray-500">Complete your profile by uploading the remaining required documents</p>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        {/* Passport - only show if missing */}
+                        {!hasPassport && (
+                          <div>
+                            <label className="block text-sm font-semibold mb-2 text-gray-700">
+                              Passport Copy <span className="text-red-600">*</span>
+                            </label>
+                            <div className="border-2 border-dashed border-purple-300 rounded-xl p-4 bg-purple-50">
+                              <input
+                                type="file"
+                                accept=".pdf,.jpg,.jpeg,.png"
+                                onChange={(e) => {
+                                  const file = e.target.files[0];
+                                  if (file) {
+                                    setDocumentFiles(prev => ({ ...prev, passport: file }));
+                                  }
+                                }}
+                                className="w-full text-sm"
+                              />
+                              {documentFiles.passport && (
+                                <div className="mt-2 flex items-center text-green-600">
+                                  <CheckCircle className="w-4 h-4 mr-2" />
+                                  <span className="text-sm">{documentFiles.passport.name}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Educational Certificates - only show if missing */}
+                        {!hasCertificate && (
+                          <div>
+                            <label className="block text-sm font-semibold mb-2 text-gray-700">
+                              Educational Certificates
+                            </label>
+                            <div className="border-2 border-dashed border-purple-300 rounded-xl p-4 bg-purple-50">
+                              <input
+                                type="file"
+                                accept=".pdf,.jpg,.jpeg,.png"
+                                multiple
+                                onChange={(e) => {
+                                  const files = Array.from(e.target.files);
+                                  if (files.length > 0) {
+                                    setDocumentFiles(prev => ({ ...prev, educationalCertificates: files }));
+                                  }
+                                }}
+                                className="w-full text-sm"
+                              />
+                              {documentFiles.educationalCertificates.length > 0 && (
+                                <div className="mt-2 text-green-600">
+                                  <CheckCircle className="w-4 h-4 inline mr-2" />
+                                  <span className="text-sm">
+                                    {documentFiles.educationalCertificates.length} file(s) selected
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Experience Letters - only show if missing */}
+                        {!hasExperience && (
+                          <div>
+                            <label className="block text-sm font-semibold mb-2 text-gray-700">
+                              Experience Letters (Optional)
+                            </label>
+                            <div className="border-2 border-dashed border-purple-300 rounded-xl p-4 bg-purple-50">
+                              <input
+                                type="file"
+                                accept=".pdf,.jpg,.jpeg,.png"
+                                multiple
+                                onChange={(e) => {
+                                  const files = Array.from(e.target.files);
+                                  if (files.length > 0) {
+                                    setDocumentFiles(prev => ({ ...prev, experienceLetters: files }));
+                                  }
+                                }}
+                                className="w-full text-sm"
+                              />
+                              {documentFiles.experienceLetters.length > 0 && (
+                                <div className="mt-2 text-green-600">
+                                  <CheckCircle className="w-4 h-4 inline mr-2" />
+                                  <span className="text-sm">
+                                    {documentFiles.experienceLetters.length} file(s) selected
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Job Offer - only show if missing */}
+                        {!hasJobOffer && (
+                          <div>
+                            <label className="block text-sm font-semibold mb-2 text-gray-700">
+                              Job Offer Letter (Optional)
+                            </label>
+                            <div className="border-2 border-dashed border-purple-300 rounded-xl p-4 bg-purple-50">
+                              <input
+                                type="file"
+                                accept=".pdf,.jpg,.jpeg,.png"
+                                onChange={(e) => {
+                                  const file = e.target.files[0];
+                                  if (file) {
+                                    setDocumentFiles(prev => ({ ...prev, jobOffer: file }));
+                                  }
+                                }}
+                                className="w-full text-sm"
+                              />
+                              {documentFiles.jobOffer && (
+                                <div className="mt-2 flex items-center text-green-600">
+                                  <CheckCircle className="w-4 h-4 mr-2" />
+                                  <span className="text-sm">{documentFiles.jobOffer.name}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="bg-yellow-50 border-2 border-yellow-300 rounded-xl p-4">
+                          <div className="flex items-start">
+                            <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5 mr-2" />
+                            <p className="text-sm text-gray-700">
+                              Accepted formats: PDF, JPG, PNG. Maximum file size: 10MB per file.
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={async () => {
+                            setUploadingDocuments(true);
+                            setUploadStatus({ show: false, type: '', message: '' });
+
+                            console.log('🚀 Starting document upload process...');
+
+                            try {
+                              const uploadResults = {
+                                passport: null,
+                                educationalCertificates: [],
+                                experienceLetters: [],
+                                jobOffer: null
+                              };
+
+                              // Upload passport
+                              if (documentFiles.passport) {
+                                console.log('📤 Uploading passport:', documentFiles.passport.name);
+                                const passportResult = await uploadDocument(
+                                  documentFiles.passport,
+                                  user.id,
+                                  DOCUMENT_TYPES.PASSPORT,
+                                  STORAGE_BUCKETS.DOCUMENTS
+                                );
+                                console.log('✅ Passport result:', passportResult);
+                                if (passportResult.success) {
+                                  uploadResults.passport = passportResult.filePath;
+                                } else {
+                                  throw new Error('Failed to upload passport: ' + passportResult.error);
+                                }
+                              }
+
+                              // Upload certificates
+                              if (documentFiles.educationalCertificates.length > 0) {
+                                console.log('📤 Starting certificates upload...', documentFiles.educationalCertificates.length, 'files');
+                                for (let i = 0; i < documentFiles.educationalCertificates.length; i++) {
+                                  const cert = documentFiles.educationalCertificates[i];
+                                  console.log(`📤 Uploading certificate ${i + 1}/${documentFiles.educationalCertificates.length}:`, cert.name);
+                                  try {
+                                    const certResult = await uploadDocument(
+                                      cert,
+                                      user.id,
+                                      DOCUMENT_TYPES.CERTIFICATE,
+                                      STORAGE_BUCKETS.DOCUMENTS
+                                    );
+                                    console.log(`✅ Certificate ${i + 1} result:`, certResult);
+                                    if (certResult.success) {
+                                      uploadResults.educationalCertificates.push(certResult.filePath);
+                                    } else {
+                                      console.error(`❌ Certificate ${i + 1} failed:`, certResult.error);
+                                    }
+                                  } catch (certError) {
+                                    console.error(`❌ Exception uploading certificate ${i + 1}:`, certError);
+                                  }
+                                }
+                                console.log('✅ All certificates processed');
+                              }
+
+                              // Upload experience letters
+                              if (documentFiles.experienceLetters.length > 0) {
+                                console.log('📤 Starting experience letters upload...', documentFiles.experienceLetters.length, 'files');
+                                for (let i = 0; i < documentFiles.experienceLetters.length; i++) {
+                                  const exp = documentFiles.experienceLetters[i];
+                                  console.log(`📤 Uploading experience letter ${i + 1}/${documentFiles.experienceLetters.length}:`, exp.name);
+                                  try {
+                                    const expResult = await uploadDocument(
+                                      exp,
+                                      user.id,
+                                      DOCUMENT_TYPES.EXPERIENCE,
+                                      STORAGE_BUCKETS.DOCUMENTS
+                                    );
+                                    console.log(`✅ Experience letter ${i + 1} result:`, expResult);
+                                    if (expResult.success) {
+                                      uploadResults.experienceLetters.push(expResult.filePath);
+                                    } else {
+                                      console.error(`❌ Experience letter ${i + 1} failed:`, expResult.error);
+                                    }
+                                  } catch (expError) {
+                                    console.error(`❌ Exception uploading experience letter ${i + 1}:`, expError);
+                                  }
+                                }
+                                console.log('✅ All experience letters processed');
+                              }
+
+                              // Upload job offer
+                              if (documentFiles.jobOffer) {
+                                console.log('📤 Uploading job offer:', documentFiles.jobOffer.name);
+                                try {
+                                  const jobOfferResult = await uploadDocument(
+                                    documentFiles.jobOffer,
+                                    user.id,
+                                    DOCUMENT_TYPES.JOB_OFFER,
+                                    STORAGE_BUCKETS.DOCUMENTS
+                                  );
+                                  console.log('✅ Job offer result:', jobOfferResult);
+                                  if (jobOfferResult.success) {
+                                    uploadResults.jobOffer = jobOfferResult.filePath;
+                                  } else {
+                                    console.error('❌ Job offer upload failed:', jobOfferResult.error);
+                                  }
+                                } catch (jobError) {
+                                  console.error('❌ Exception uploading job offer:', jobError);
+                                }
+                                console.log('✅ Job offer processed');
+                              }
+
+                              console.log('✅ All uploads completed! Results:', uploadResults);
+
+                              setUploadStatus({
+                                show: true,
+                                type: 'success',
+                                message: 'Documents uploaded successfully!'
+                              });
+
+                              console.log('🔄 Refreshing documents list...');
+                              // Refresh documents
+                              const result = await getUserDocuments(user.id);
+                              if (result.success) {
+                                console.log('✅ Documents list refreshed:', result.documents.length, 'documents');
+                                setDocuments(result.documents);
+                                setLoadingDocuments(false); // Ensure we're not in loading state
+                              } else {
+                                console.error('❌ Failed to refresh documents:', result.error);
+                              }
+
+                              console.log('🧹 Resetting form...');
+                              // Reset form
+                              setDocumentFiles({
+                                passport: null,
+                                educationalCertificates: [],
+                                experienceLetters: [],
+                                jobOffer: null
+                              });
+
+                              console.log('✅ Upload process completed successfully!');
+
+                            } catch (error) {
+                              console.error('❌ Document upload error:', error);
+                              console.error('Error stack:', error.stack);
+                              
+                              setUploadStatus({
+                                show: true,
+                                type: 'error',
+                                message: error.message || 'Failed to upload documents'
+                              });
+                            } finally {
+                              console.log('🏁 Finally block - resetting uploading state');
+                              setUploadingDocuments(false);
+                            }
+                          }}
+                    disabled={
+                      uploadingDocuments || 
+                      (!documentFiles.passport && 
+                       documentFiles.educationalCertificates.length === 0 && 
+                       documentFiles.experienceLetters.length === 0 && 
+                       !documentFiles.jobOffer)
+                    }
+                    className="w-full py-3 rounded-xl font-semibold text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ backgroundColor: 'rgba(187, 40, 44, 1)' }}
+                  >
+                    {uploadingDocuments ? (
+                      <div className="flex items-center justify-center">
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                        Uploading...
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center">
+                        <Upload className="w-5 h-5 mr-2" />
+                        Upload Missing Documents
+                      </div>
+                    )}
+                  </button>
+                </div>
               </div>
-            )}
-          </div>
-        </div>
+            );
+          })()}
+        </>
+      )}
+    </div>
+  </div>
 
         {/* CV and Cover Letter Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">

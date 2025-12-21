@@ -45,6 +45,12 @@ export function OnboardingProvider({ children }) {
       experienceLetters: [],
       jobOffer: null
     },
+    tempDocumentMetadata: {
+      passport: null,
+      educationalCertificates: [],
+      experienceLetters: [],
+      jobOffer: null
+    },
     currentStep: 0,
     completedSteps: [],
     lastUpdated: null
@@ -66,29 +72,6 @@ export function OnboardingProvider({ children }) {
   const loadOnboardingData = async () => {
     try {
       setLoading(true);
-      
-      // Try localStorage first for instant load
-      if (typeof window !== 'undefined') {
-        const cached = localStorage.getItem('onboarding_data');
-        if (cached) {
-          try {
-            const parsedData = JSON.parse(cached);
-            console.log('📂 Loaded from localStorage (instant)');
-            setOnboardingData(parsedData);
-            setLoading(false);
-            // Still fetch from database in background to sync
-            fetchFromDatabase();
-            return;
-          } catch (e) {
-            console.error('Error parsing localStorage:', e);
-            // Clear corrupted data and fallback to database
-            console.warn('🧹 Clearing corrupted localStorage and loading from database...');
-            localStorage.removeItem('onboarding_data');
-          }
-        }
-      }
-      
-      // No localStorage, load from database
       console.log('📂 Loading from database...');
       await fetchFromDatabase();
     } catch (error) {
@@ -100,11 +83,21 @@ export function OnboardingProvider({ children }) {
 
   const fetchFromDatabase = async () => {
     try {
-      const { data, error } = await supabase
+      // Add timeout to prevent hanging on initial load
+      const fetchPromise = supabase
         .from('onboarding_data')
         .select('*')
         .eq('user_id', user.id)
         .maybeSingle();
+
+      const timeoutPromise = new Promise((resolve) => {
+        setTimeout(() => {
+          console.log('⚠️ Database fetch timeout, using default data');
+          resolve({ data: null, error: null });
+        }, 3000);
+      });
+
+      const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
 
       if (error && error.code !== 'PGRST116') {
         console.error('Error loading from database:', error);
@@ -123,6 +116,7 @@ export function OnboardingProvider({ children }) {
           callScheduleDetails: data.call_details || null,
           documentsUploaded: data.documents_uploaded || false,
           documents: data.documents || getInitialState().documents,
+          tempDocumentMetadata: data.temp_document_metadata || getInitialState().tempDocumentMetadata,
           currentStep: data.current_step || 0,
           completedSteps: data.completed_steps || [],
           lastUpdated: data.updated_at
@@ -141,11 +135,6 @@ export function OnboardingProvider({ children }) {
         
         console.log('📂 Loaded from database:', loadedData);
         setOnboardingData(loadedData);
-        
-        // Save to localStorage for next time
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('onboarding_data', JSON.stringify(loadedData));
-        }
       } else {
         // No data in database, initialize with user profile data
         const initialData = getInitialState();
@@ -157,11 +146,6 @@ export function OnboardingProvider({ children }) {
         };
         console.log('📂 No database data, initializing with user profile');
         setOnboardingData(initialData);
-        
-        // Save initial state to localStorage
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('onboarding_data', JSON.stringify(initialData));
-        }
       }
     } catch (error) {
       console.error('Error in fetchFromDatabase:', error);
@@ -173,22 +157,22 @@ export function OnboardingProvider({ children }) {
   // Save to Supabase whenever data changes
   const saveToDatabase = async (updatedData) => {
     if (!user?.id) {
-      console.warn('Cannot save onboarding data: no user logged in');
-      return;
+      console.warn('⚠️ Cannot save onboarding data: no user logged in');
+      throw new Error('User not logged in');
     }
 
     try {
+      console.log('💾 Starting database save...');
+      
       // Ensure completed_steps are all integers (PostgreSQL INTEGER[] requirement)
       const completedStepsAsIntegers = (updatedData.completedSteps || []).map(s =>
         typeof s === 'string' ? parseInt(s, 10) : s
       );
 
       // Map local state to database fields
-      // IMPORTANT: Ensure JSONB fields are objects, not strings
       const dbData = {
         user_id: user.id,
         relocation_type: updatedData.relocationType || null,
-        // Ensure JSONB fields are sent as objects, not strings
         personal_details: updatedData.personalDetails || {},
         visa_check: updatedData.visaCheck || {},
         visa_eligibility_result: updatedData.visaEligibilityResult || null,
@@ -198,125 +182,121 @@ export function OnboardingProvider({ children }) {
         call_details: updatedData.callScheduleDetails || {},
         documents_uploaded: updatedData.documentsUploaded || false,
         documents: updatedData.documents || {},
+        temp_document_metadata: updatedData.tempDocumentMetadata || {},
         current_step: updatedData.currentStep || 0,
         completed_steps: completedStepsAsIntegers,
         updated_at: new Date().toISOString()
       };
 
-      console.log('💾 Saving to database - User:', user.id, 'Step:', dbData.current_step);
+      console.log('📊 Saving data:', { userId: user.id, step: dbData.current_step, completedSteps: dbData.completed_steps });
 
-      const { data, error } = await supabase
+      // Use Promise.race to add timeout (30 seconds)
+      const savePromise = supabase
         .from('onboarding_data')
         .upsert(dbData, {
-          onConflict: 'user_id'
-        })
-        .select();
+          onConflict: 'user_id',
+          ignoreDuplicates: false
+        });
+
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Database save timeout after 30s')), 30000)
+      );
+
+      const { data, error } = await Promise.race([savePromise, timeoutPromise]);
 
       if (error) {
         console.error('❌ Database save error:', error.message);
-        throw error;
-      } else {
-        console.log('✅ Database save successful');
-        
-        // Update localStorage after successful database save
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('onboarding_data', JSON.stringify(updatedData));
-        }
+        console.error('Error details:', error);
+        throw new Error(`Database save failed: ${error.message}`);
       }
+
+      console.log('✅ Database save successful!');
+      return data;
     } catch (error) {
-      console.error('❌ EXCEPTION saving onboarding data:', error);
-      console.error('Exception stack:', error.stack);
-      // Re-throw error so caller knows save failed
+      console.error('❌ EXCEPTION in saveToDatabase:', error);
+      console.error('❌ Exception message:', error.message);
+      if (error.stack) console.error('Stack:', error.stack);
       throw error;
     }
   };
 
   const updatePersonalDetails = async (details) => {
+    console.log('📝 Updating personal details...');
+
     const updatedData = {
       ...onboardingData,
       personalDetails: { ...onboardingData.personalDetails, ...details },
       lastUpdated: new Date().toISOString()
     };
 
-    // Update state immediately
     setOnboardingData(updatedData);
 
-    // Save to database
+    // Wait for database save to complete
     await saveToDatabase(updatedData);
 
-    // Also update the user's profile in the profiles table
+    // Update profile (also wait for this)
     if (user?.id && details) {
-      try {
-        const profileUpdates = {};
+      const profileUpdates = {};
+      if (details.fullName) profileUpdates.full_name = details.fullName;
+      if (details.email) profileUpdates.email = details.email;
+      if (details.telephone) profileUpdates.phone = details.telephone;
+      if (details.address?.country) profileUpdates.country = details.address.country;
 
-        // Map onboarding fields to profile fields
-        if (details.fullName) profileUpdates.full_name = details.fullName;
-        if (details.email) profileUpdates.email = details.email;
-        if (details.telephone) profileUpdates.phone = details.telephone;
-        if (details.address?.country) profileUpdates.country = details.address.country;
-
-        if (Object.keys(profileUpdates).length > 0) {
-          const { error } = await supabase
-            .from('profiles')
-            .update(profileUpdates)
-            .eq('id', user.id);
-
-          if (error) {
-            console.error('Error updating profile:', error);
-          } else {
-            console.log('✅ Profile updated with:', profileUpdates);
-          }
-        }
-      } catch (error) {
-        console.error('Exception updating profile:', error);
+      if (Object.keys(profileUpdates).length > 0) {
+        await supabase.from('profiles').update(profileUpdates).eq('id', user.id);
+        console.log('✅ Profile updated');
       }
     }
-    
-    // Return updated data so caller can use it immediately (avoid stale state)
+
     return updatedData;
   };
 
   const updateVisaCheck = async (visaData) => {
+    console.log('📝 Updating visa check...');
+
     const updatedData = {
       ...onboardingData,
       visaCheck: { ...onboardingData.visaCheck, ...visaData },
       lastUpdated: new Date().toISOString()
     };
     setOnboardingData(updatedData);
-    
+
+    // Wait for database save
     await saveToDatabase(updatedData);
-    
-    // Return updated data so caller can use it immediately (avoid stale state)
+
     return updatedData;
   };
 
   const setRelocationType = async (type) => {
+    console.log('🌍 Setting relocation type:', type);
+
     const updatedData = {
       ...onboardingData,
       relocationType: type,
       lastUpdated: new Date().toISOString()
     };
-    
+
     setOnboardingData(updatedData);
+
+    // Wait for database save
     await saveToDatabase(updatedData);
-    
-    console.log('✅ Relocation type saved:', type);
-    
-    // Return updated data so caller can use it immediately (avoid stale state)
+
     return updatedData;
   };
 
   const setVisaEligibility = async (result) => {
+    console.log('🔍 Setting visa eligibility:', result);
+
     const updatedData = {
       ...onboardingData,
       visaEligibilityResult: result,
       lastUpdated: new Date().toISOString()
     };
     setOnboardingData(updatedData);
-    
+
+    // Wait for database save
     await saveToDatabase(updatedData);
-    
-    // Return updated data so caller can use it immediately (avoid stale state)
+
     return updatedData;
   };
 
@@ -416,6 +396,8 @@ export function OnboardingProvider({ children }) {
   };
 
   const scheduleCall = async (callDetails) => {
+    console.log('📞 Scheduling call...');
+
     const updatedData = {
       ...onboardingData,
       onboardingCallScheduled: true,
@@ -423,78 +405,59 @@ export function OnboardingProvider({ children }) {
       lastUpdated: new Date().toISOString()
     };
     setOnboardingData(updatedData);
+
+    // Wait for database save
     await saveToDatabase(updatedData);
-    
-    // Return updated data so caller can use it immediately (avoid stale state)
+
+    return updatedData;
+  };
+
+  const saveTempDocumentMetadata = async (metadata) => {
+    console.log('📄 Saving temp document metadata...');
+
+    const updatedData = {
+      ...onboardingData,
+      tempDocumentMetadata: { ...onboardingData.tempDocumentMetadata, ...metadata },
+      lastUpdated: new Date().toISOString()
+    };
+
+    setOnboardingData(updatedData);
+
+    // Wait for database save
+    await saveToDatabase(updatedData);
+
     return updatedData;
   };
 
   const uploadDocuments = async (documents) => {
     console.log('📦 uploadDocuments called with:', documents);
-    console.log('📊 Current onboarding data before upload:', {
-      relocationType: onboardingData.relocationType,
-      completedSteps: onboardingData.completedSteps,
-      paymentCompleted: onboardingData.paymentCompleted,
-      callScheduled: onboardingData.onboardingCallScheduled,
-      documentsUploaded: onboardingData.documentsUploaded
-    });
 
     const updatedData = {
       ...onboardingData,
       documentsUploaded: true,
       documents: { ...onboardingData.documents, ...documents },
+      tempDocumentMetadata: getInitialState().tempDocumentMetadata, // Clear temp metadata
       lastUpdated: new Date().toISOString()
     };
 
-    console.log('📊 Updated data to save:', {
-      relocationType: updatedData.relocationType,
-      completedSteps: updatedData.completedSteps,
-      paymentCompleted: updatedData.paymentCompleted,
-      callScheduled: updatedData.onboardingCallScheduled,
-      documentsUploaded: updatedData.documentsUploaded,
-      hasPersonalDetails: !!updatedData.personalDetails?.fullName
-    });
-
     setOnboardingData(updatedData);
+
+    // Wait for database save
     await saveToDatabase(updatedData);
 
     // Check if onboarding is complete and update profile
     const isComplete = checkOnboardingComplete(updatedData);
-    console.log('🔍 Checking onboarding completion:', {
-      relocationType: updatedData.relocationType,
-      completedSteps: updatedData.completedSteps,
-      paymentCompleted: updatedData.paymentCompleted,
-      callScheduled: updatedData.onboardingCallScheduled,
-      documentsUploaded: updatedData.documentsUploaded,
-      isComplete
-    });
+    console.log('🔍 Onboarding complete?', isComplete);
 
     if (isComplete && user?.id) {
-      try {
-        const { error } = await supabase
-          .from('profiles')
-          .update({ onboarding_complete: true })
-          .eq('id', user.id);
-
-        if (error) {
-          console.error('Error updating onboarding_complete:', error);
-        } else {
-          console.log('✅ Onboarding marked as complete in profiles table');
-        }
-      } catch (error) {
-        console.error('Exception updating onboarding_complete:', error);
-      }
-    } else {
-      console.log('❌ Onboarding NOT complete. Missing requirements:', {
-        needsPersonalDetails: !updatedData.completedSteps?.includes(1),
-        needsVisaCheck: updatedData.relocationType === 'europe' && !updatedData.completedSteps?.includes(2),
-        needsPayment: !updatedData.paymentCompleted,
-        needsCall: !updatedData.onboardingCallScheduled,
-        needsDocuments: !updatedData.documentsUploaded
-      });
+      // Wait for profile update
+      await supabase
+        .from('profiles')
+        .update({ onboarding_complete: true })
+        .eq('id', user.id);
+      console.log('✅ Profile marked as complete');
     }
-    
-    // Return updated data so caller can use it immediately (avoid stale state)
+
     return updatedData;
   };
 
@@ -645,6 +608,7 @@ export function OnboardingProvider({ children }) {
     initiateTilopayPayment,
     verifyPayment,
     scheduleCall,
+    saveTempDocumentMetadata,
     uploadDocuments,
     setCurrentStep,
     markStepCompleted,

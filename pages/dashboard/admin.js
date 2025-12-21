@@ -31,7 +31,7 @@ import {
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const { user, logout, isAuthenticated, supabase } = useAuth();
+  const { user, logout, isAuthenticated, supabase, loading: authLoading } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [searchQuery, setSearchQuery] = useState('');
@@ -68,22 +68,46 @@ export default function AdminDashboard() {
   const [selectedUserLeads, setSelectedUserLeads] = useState(null); // Selected user's job leads
   const [showUserLeadsModal, setShowUserLeadsModal] = useState(false);
   const [expandedJobId, setExpandedJobId] = useState(null); // ID of expanded job to show details
+  const [dataInitialized, setDataInitialized] = useState(false); // Track if initial data load happened
 
   useEffect(() => {
-    if (!isAuthenticated || !user) {
-      router.push('/login');
-    } else if (user.role !== 'admin') {
-      router.push('/dashboard/customer');
-    } else {
-      // Load admin data
-      loadAdminData();
+    // Don't run if auth is still loading
+    if (authLoading) {
+      console.log('⏳ Auth still loading, waiting...');
+      return;
     }
-  }, [isAuthenticated, user, router]);
+
+    if (!isAuthenticated || !user) {
+      console.log('❌ Not authenticated, redirecting to login');
+      router.push('/login');
+      return;
+    }
+    
+    if (user.role !== 'admin') {
+      console.log('❌ Not admin user, redirecting to customer dashboard');
+      router.push('/dashboard/customer');
+      return;
+    }
+    
+    // Ensure supabase client is ready
+    if (!supabase) {
+      console.warn('⚠️ Supabase client not ready yet');
+      return;
+    }
+    
+    // Only load data once when auth is ready and user is admin
+    if (!dataInitialized) {
+      console.log('✅ Auth ready, loading admin data for first time...');
+      loadAdminData();
+      setDataInitialized(true);
+    }
+  }, [isAuthenticated, user, router, authLoading, supabase, dataInitialized]);
 
   const loadAdminData = async () => {
+    console.log('📊 Starting admin data load...');
     setLoading(true);
     try {
-      await Promise.all([
+      const results = await Promise.allSettled([
         fetchStats(),
         fetchRecentUsers(),
         fetchRecentApplications(),
@@ -92,8 +116,20 @@ export default function AdminDashboard() {
         fetchNotifications(),
         fetchUserJobLeads()
       ]);
+      
+      // Log any failures
+      results.forEach((result, index) => {
+        const names = ['Stats', 'RecentUsers', 'RecentApplications', 'AllUsers', 'AllApplications', 'Notifications', 'UserJobLeads'];
+        if (result.status === 'rejected') {
+          console.error(`❌ Failed to load ${names[index]}:`, result.reason);
+        } else {
+          console.log(`✅ ${names[index]} loaded successfully`);
+        }
+      });
+      
+      console.log('✅ Admin data load complete');
     } catch (error) {
-      console.error('Error loading admin data:', error);
+      console.error('❌ Critical error loading admin data:', error);
     } finally {
       setLoading(false);
     }
@@ -101,39 +137,66 @@ export default function AdminDashboard() {
 
   const fetchStats = async () => {
     try {
+      console.log('📊 Fetching stats...');
       // Total Users
-      const { count: totalUsers } = await supabase
+      const { count: totalUsers, error: usersError } = await supabase
         .from('profiles')
         .select('*', { count: 'exact', head: true });
 
+      if (usersError) {
+        console.error('Error counting users:', usersError);
+      }
+
       // Active Applications (users with onboarding complete)
-      const { count: activeApplications } = await supabase
+      const { count: activeApplications, error: activeError } = await supabase
         .from('profiles')
         .select('*', { count: 'exact', head: true })
         .eq('onboarding_complete', true);
 
+      if (activeError) {
+        console.error('Error counting active apps:', activeError);
+      }
+
       // Total Revenue (sum of completed payments)
-      const { data: payments } = await supabase
+      const { data: payments, error: paymentsError } = await supabase
         .from('payments')
         .select('amount')
         .eq('status', 'completed');
 
+      if (paymentsError) {
+        console.error('Error fetching payments:', paymentsError);
+      }
+
       const totalRevenue = payments?.reduce((sum, payment) => sum + Number(payment.amount || 0), 0) || 0;
 
       // Pending Reviews (users with onboarding not complete)
-      const { count: pendingReviews } = await supabase
+      const { count: pendingReviews, error: pendingError } = await supabase
         .from('profiles')
         .select('*', { count: 'exact', head: true })
         .eq('onboarding_complete', false);
 
-      setStats({
+      if (pendingError) {
+        console.error('Error counting pending:', pendingError);
+      }
+
+      const newStats = {
         totalUsers: totalUsers || 0,
         activeApplications: activeApplications || 0,
         totalRevenue: totalRevenue,
         pendingReviews: pendingReviews || 0
-      });
+      };
+
+      console.log('📊 Stats fetched:', newStats);
+      setStats(newStats);
     } catch (error) {
-      console.error('Error fetching stats:', error);
+      console.error('❌ Exception fetching stats:', error);
+      // Set default values on error
+      setStats({
+        totalUsers: 0,
+        activeApplications: 0,
+        totalRevenue: 0,
+        pendingReviews: 0
+      });
     }
   };
 
@@ -460,12 +523,24 @@ export default function AdminDashboard() {
 
   // View Job Leads
   const handleViewJobLeads = async () => {
+    console.log('🔍 Opening job leads modal...');
     setShowJobLeadsModal(true);
+    setLoadingJobLeads(true);
     await fetchJobLeads();
+  };
+
+  // Close Job Leads Modal
+  const handleCloseJobLeadsModal = () => {
+    console.log('❌ Closing job leads modal...');
+    setShowJobLeadsModal(false);
+    setLoadingJobLeads(false);
+    // Clear job leads data when closing
+    setJobLeads([]);
   };
 
   // View User's Job Leads
   const handleViewUserJobLeads = async (userEmail) => {
+    console.log('🔍 Opening user leads modal for:', userEmail);
     setLoadingJobLeads(true);
     setShowUserLeadsModal(true);
 
@@ -499,6 +574,14 @@ export default function AdminDashboard() {
     } finally {
       setLoadingJobLeads(false);
     }
+  };
+
+  // Close User Leads Modal
+  const handleCloseUserLeadsModal = () => {
+    console.log('❌ Closing user leads modal...');
+    setShowUserLeadsModal(false);
+    setLoadingJobLeads(false);
+    setSelectedUserLeads(null);
   };
 
   // Fetch Statistics for Reports
@@ -547,9 +630,18 @@ export default function AdminDashboard() {
 
   // View Reports
   const handleViewReports = async () => {
-    console.log('=== handleViewReports clicked ===');
+    console.log('🔍 Opening reports modal...');
     setShowReportsModal(true);
+    setLoadingReports(true);
     await fetchReportStatistics();
+  };
+
+  // Close Reports Modal
+  const handleCloseReportsModal = () => {
+    console.log('❌ Closing reports modal...');
+    setShowReportsModal(false);
+    setLoadingReports(false);
+    setReportStats(null);
   };
 
   // Export Data
@@ -651,16 +743,21 @@ export default function AdminDashboard() {
       console.log('Response data:', result);
 
       if (response.ok && result.success) {
-        alert(`User onboarding status updated to ${onboardingComplete ? 'Complete' : 'Incomplete'}!`);
-
-        // Refresh user lists
-        console.log('Refreshing user data...');
+        console.log('Status update successful, refreshing data...');
+        
+        // Refresh user lists and wait for completion
         await Promise.all([
           fetchRecentUsers(),
           fetchAllUsers(),
           fetchStats()
         ]);
+        
         console.log('User data refreshed successfully');
+        
+        // Force a small delay to ensure state updates propagate
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        alert(`User onboarding status updated to ${onboardingComplete ? 'Complete' : 'Incomplete'}!`);
       } else {
         console.error('Error updating user status:', result.error);
         alert(`Error updating user status: ${result.error || 'Unknown error'}`);
@@ -669,8 +766,19 @@ export default function AdminDashboard() {
       console.error('Error updating user status:', error);
       alert('Error updating user status: ' + error.message);
     } finally {
+      // Clear updating status after everything completes
       setUpdatingStatus(null);
       console.log('=== handleUpdateUserStatus completed ===');
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Force redirect even if logout fails
+      router.push('/');
     }
   };
 
@@ -835,7 +943,7 @@ export default function AdminDashboard() {
                   </p>
                 </div>
                 <button
-                  onClick={logout}
+                  onClick={handleLogout}
                   className="hidden sm:flex items-center space-x-2 px-4 py-2 font-bold text-sm text-white transition-all duration-200"
                   style={{
                     backgroundColor: 'rgba(187, 40, 44, 1)',
@@ -1675,7 +1783,7 @@ export default function AdminDashboard() {
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
           <div
             className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200]"
-            onClick={() => !loadingJobLeads && setShowJobLeadsModal(false)}
+            onClick={() => !loadingJobLeads && handleCloseJobLeadsModal()}
           />
           <div
             className="relative w-full max-w-6xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl border backdrop-blur-md z-[201]"
@@ -1688,7 +1796,7 @@ export default function AdminDashboard() {
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-2xl font-bold text-gray-900">Job Leads Database</h3>
                 <button
-                  onClick={() => setShowJobLeadsModal(false)}
+                  onClick={handleCloseJobLeadsModal}
                   className="p-2 hover:bg-gray-100 rounded-lg"
                 >
                   <X className="w-6 h-6 text-gray-600" />
@@ -1769,7 +1877,7 @@ export default function AdminDashboard() {
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
           <div
             className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200]"
-            onClick={() => !loadingReports && setShowReportsModal(false)}
+            onClick={() => !loadingReports && handleCloseReportsModal()}
           />
           <div
             className="relative w-full max-w-6xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl border backdrop-blur-md z-[201]"
@@ -1782,7 +1890,7 @@ export default function AdminDashboard() {
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-2xl font-bold text-gray-900">Platform Statistics & Reports</h3>
                 <button
-                  onClick={() => setShowReportsModal(false)}
+                  onClick={handleCloseReportsModal}
                   className="p-2 hover:bg-gray-100 rounded-lg"
                 >
                   <X className="w-6 h-6 text-gray-600" />
@@ -1923,7 +2031,7 @@ export default function AdminDashboard() {
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
           <div
             className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200]"
-            onClick={() => !loadingJobLeads && setShowUserLeadsModal(false)}
+            onClick={() => !loadingJobLeads && handleCloseUserLeadsModal()}
           />
           <div
             className="relative w-full max-w-6xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl border backdrop-blur-md z-[201]"
@@ -1939,7 +2047,7 @@ export default function AdminDashboard() {
                   <p className="text-sm text-gray-600 mt-1">{selectedUserLeads?.email}</p>
                 </div>
                 <button
-                  onClick={() => setShowUserLeadsModal(false)}
+                  onClick={handleCloseUserLeadsModal}
                   className="p-2 hover:bg-gray-100 rounded-lg"
                 >
                   <X className="w-6 h-6 text-gray-600" />

@@ -89,16 +89,23 @@ export default function UnifiedPaymentPage() {
       }
 
       // Set user data
+      const personalDetails = onboarding?.personal_details || {};
+      const address = personalDetails?.address || {};
+      
       setUserData({
         id: user.id,
-        email: user.email,
-        firstName: profile?.first_name || onboarding?.personal_info?.firstName || '',
-        lastName: profile?.last_name || onboarding?.personal_info?.lastName || '',
-        phone: profile?.phone || onboarding?.personal_info?.phone || '',
-        address: onboarding?.personal_info?.address || '',
-        city: onboarding?.personal_info?.city || '',
-        state: onboarding?.personal_info?.state || '',
-        country: onboarding?.personal_info?.country || 'US',
+        email: user.email || personalDetails?.email,
+        fullName: personalDetails?.fullName || profile?.full_name || '',
+        firstName: personalDetails?.fullName?.split(' ')[0] || profile?.full_name?.split(' ')[0] || '',
+        lastName: personalDetails?.fullName?.split(' ').slice(1).join(' ') || profile?.full_name?.split(' ').slice(1).join(' ') || '',
+        phone: personalDetails?.telephone || profile?.phone || '',
+        telephone: personalDetails?.telephone || profile?.phone || '',
+        address: address?.street || '',
+        street: address?.street || '',
+        city: address?.city || '',
+        state: address?.state || '',
+        zip: address?.zip || '',
+        country: address?.country || profile?.country || '',
       });
 
       // Set plan details

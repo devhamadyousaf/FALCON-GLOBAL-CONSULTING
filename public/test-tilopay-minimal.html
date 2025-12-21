@@ -129,6 +129,24 @@
     <script type="text/javascript">
         // Global variables
         let initResponse = null;
+        
+        // Get URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const amount = urlParams.get('amount') || '1.00';
+        const planName = urlParams.get('planName') || 'Test Plan';
+        const userId = urlParams.get('userId') || '';
+        const userEmail = urlParams.get('email') || '';
+        const returnUrl = urlParams.get('returnUrl') || '/onboarding-new?payment=success';
+
+        // Update page title and button
+        document.addEventListener("DOMContentLoaded", function() {
+            document.title = `Payment - ${planName}`;
+            const heading = document.querySelector('h1');
+            if (heading) heading.textContent = `Payment - ${planName} ($${amount})`;
+            
+            const payButton = document.querySelector('input[value^="Pay"]');
+            if (payButton) payButton.value = `Pay $${amount}`;
+        });
 
         function showStatus(message, isError = false) {
             const statusDiv = document.getElementById('status');
@@ -158,7 +176,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        amount: 1.00,
+                        amount: parseFloat(amount),
                         currency: 'USD',
                         orderNumber: 'sdk-' + Date.now()
                     })
@@ -180,20 +198,20 @@
                     token: TILOPAY_TOKEN,
                     currency: "USD",
                     language: "en",
-                    amount: 1.00,
-                    billToFirstName: "Jose",
-                    billToLastName: "Lopez",
-                    billToAddress: "San Jose",
+                    amount: parseFloat(amount),
+                    billToFirstName: userEmail.split('@')[0] || "Customer",
+                    billToLastName: "User",
+                    billToAddress: "N/A",
                     billToAddress2: "",
-                    billToCity: "San Jose",
-                    billToState: "SJ",
-                    billToZipPostCode: "10101",
+                    billToCity: "N/A",
+                    billToState: "",
+                    billToZipPostCode: "00000",
                     billToCountry: "CR",
-                    billToTelephone: "+50688888888",
-                    billToEmail: "test@example.com",
-                    orderNumber: "sdk-" + Date.now(),
+                    billToTelephone: "",
+                    billToEmail: userEmail || "customer@example.com",
+                    orderNumber: `order-${userId}-${Date.now()}`,
                     capture: 1,
-                    redirect: "https://tilopay.test/response",
+                    redirect: returnUrl,
                     subscription: 0,
                     hashVersion: "V2"
                 });

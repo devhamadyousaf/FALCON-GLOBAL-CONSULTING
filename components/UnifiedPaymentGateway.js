@@ -31,12 +31,12 @@ const UnifiedPaymentGateway = ({
   onError,
 }) => {
   const router = useRouter();
-  const [activeGateway, setActiveGateway] = useState('paypal'); // 'paypal' or 'tilopay'
-  const [paypalFailed, setPaypalFailed] = useState(false);
+  const [activeGateway, setActiveGateway] = useState('tilopay'); // 'paypal' or 'tilopay' - DISABLED PAYPAL
+  const [paypalFailed, setPaypalFailed] = useState(true); // PayPal disabled
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [gatewayStatus, setGatewayStatus] = useState({
-    paypal: 'available',
+    paypal: 'unavailable', // PayPal disabled
     tilopay: 'available',
   });
 

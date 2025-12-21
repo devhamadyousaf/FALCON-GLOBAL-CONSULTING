@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../../context/AuthContext';
 import { supabase } from '../../../lib/supabase';
+import { safeLocalStorage, safeSessionStorage } from '../../../utils/safeStorage';
 import Link from 'next/link';
 import {
   Briefcase,
@@ -47,12 +48,14 @@ export default function ServicePage() {
     location: '',
     remote: 'remote',
     sort: 'relevant',
-    platform: 'linkedin',
+    platform: 'indeed',
     cities: [], // For Naukri
     experience: 'all', // For Naukri
     freshness: 'all', // For Naukri
     baseUrl: 'https://www.glassdoor.com', // For Glassdoor
-    includeNoSalaryJob: false // For Glassdoor
+    includeNoSalaryJob: false, // For Glassdoor
+    cv_id: '', // Selected CV for campaign
+    cover_letter_id: '' // Selected cover letter for campaign
   });
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
   const [requestStatus, setRequestStatus] = useState({ show: false, type: '', message: '' });
@@ -71,6 +74,12 @@ export default function ServicePage() {
   const [cvs, setCvs] = useState([]);
   const [coverLetters, setCoverLetters] = useState([]);
   const [sendingApplications, setSendingApplications] = useState(false);
+  const [activeCampaign, setActiveCampaign] = useState(null); // Track active campaign
+  const [loadingCampaign, setLoadingCampaign] = useState(false);
+  const [campaigns, setCampaigns] = useState([]); // All campaigns
+  const [loadingCampaigns, setLoadingCampaigns] = useState(false);
+  const [showEditCampaignModal, setShowEditCampaignModal] = useState(false);
+  const [editingCampaign, setEditingCampaign] = useState(null);
   const [notifications, setNotifications] = useState([
     { id: 1, title: 'Application Approved', message: 'Your job application has been approved!', time: '2h ago', type: 'success', read: false },
     { id: 2, title: 'Document Required', message: 'Please upload your visa documents', time: '5h ago', type: 'warning', read: false },
@@ -191,10 +200,10 @@ export default function ServicePage() {
             setGmailAccountId(result.id);
 
             // Set connection timestamp if not already set
-            const storedTime = sessionStorage.getItem('gmail_connection_time');
+            const storedTime = safeSessionStorage.getItem('gmail_connection_time', null);
             if (!storedTime) {
               const now = Date.now();
-              sessionStorage.setItem('gmail_connection_time', now.toString());
+              safeSessionStorage.setItem('gmail_connection_time', now.toString());
               setGmailConnectionTime(now);
             } else {
               setGmailConnectionTime(parseInt(storedTime));
@@ -239,13 +248,13 @@ export default function ServicePage() {
     const DISCONNECT_TIMEOUT = 5 * 60 * 1000; // 5 minutes in milliseconds
 
     const checkAndDisconnect = () => {
-      const connectionTime = parseInt(sessionStorage.getItem('gmail_connection_time') || '0');
+      const connectionTime = parseInt(safeSessionStorage.getItem('gmail_connection_time', '0'));
       const elapsed = Date.now() - connectionTime;
 
       if (elapsed >= DISCONNECT_TIMEOUT) {
         console.log('🔒 Auto-disconnecting Gmail after 5 minutes of inactivity');
         // Clear session connection time (tokens are in database)
-        sessionStorage.removeItem('gmail_connection_time');
+        safeSessionStorage.removeItem('gmail_connection_time');
 
         // Update UI state
         setGmailConnected(false);
@@ -270,23 +279,19 @@ export default function ServicePage() {
 
   // Reset activity timer on user interactions
   const resetGmailActivityTimer = () => {
-    if (gmailConnected && sessionStorage.getItem('gmail_connection_time')) {
+    if (gmailConnected && safeSessionStorage.getItem('gmail_connection_time', null)) {
       const now = Date.now();
-      sessionStorage.setItem('gmail_connection_time', now.toString());
+      safeSessionStorage.setItem('gmail_connection_time', now.toString());
       setGmailConnectionTime(now);
     }
   };
 
-  // Load cart from localStorage
+  // Load cart from localStorage using safe storage utility
   useEffect(() => {
     if (serviceId === 'jobs' && user?.email) {
-      const savedCart = localStorage.getItem(`job_cart_${user.email}`);
-      if (savedCart) {
-        try {
-          setCart(JSON.parse(savedCart));
-        } catch (error) {
-          console.error('Error loading cart:', error);
-        }
+      const savedCart = safeLocalStorage.getItem(`job_cart_${user.email}`, []);
+      if (savedCart && Array.isArray(savedCart)) {
+        setCart(savedCart);
       }
     }
   }, [serviceId, user?.email]);
@@ -323,6 +328,33 @@ export default function ServicePage() {
     };
 
     fetchDocuments();
+  }, [serviceId, user?.email]);
+
+  // Fetch all campaigns
+  useEffect(() => {
+    const fetchCampaigns = async () => {
+      if (serviceId === 'jobs' && user?.email) {
+        setLoadingCampaigns(true);
+        try {
+          const response = await fetch(`/api/campaigns?email=${encodeURIComponent(user.email)}`);
+          const result = await response.json();
+          
+          if (result.success && result.campaigns) {
+            setCampaigns(result.campaigns);
+            // Find active campaign
+            const active = result.campaigns.find(c => c.status === 'pending' || c.status === 'processing');
+            setActiveCampaign(active || null);
+            console.log('📊 Campaigns loaded:', result.campaigns.length);
+          }
+        } catch (error) {
+          console.error('Error fetching campaigns:', error);
+        } finally {
+          setLoadingCampaigns(false);
+        }
+      }
+    };
+
+    fetchCampaigns();
   }, [serviceId, user?.email]);
 
   const handleViewJobDetails = async (jobId) => {
@@ -372,7 +404,7 @@ export default function ServicePage() {
       // Remove from cart
       const newCart = cart.filter(item => item.id !== job.id);
       setCart(newCart);
-      localStorage.setItem(`job_cart_${user.email}`, JSON.stringify(newCart));
+      safeLocalStorage.setItem(`job_cart_${user.email}`, newCart);
       setRequestStatus({
         show: true,
         type: 'success',
@@ -382,7 +414,7 @@ export default function ServicePage() {
       // Add to cart
       const newCart = [...cart, job];
       setCart(newCart);
-      localStorage.setItem(`job_cart_${user.email}`, JSON.stringify(newCart));
+      safeLocalStorage.setItem(`job_cart_${user.email}`, newCart);
       setRequestStatus({
         show: true,
         type: 'success',
@@ -393,7 +425,7 @@ export default function ServicePage() {
 
   const clearCart = () => {
     setCart([]);
-    localStorage.removeItem(`job_cart_${user.email}`);
+    safeLocalStorage.removeItem(`job_cart_${user.email}`);
     setRequestStatus({
       show: true,
       type: 'success',
@@ -474,7 +506,7 @@ export default function ServicePage() {
           setGmailConnected(false);
           setGmailAccountId(null);
           setGmailAddress('');
-          sessionStorage.removeItem('gmail_connection_time');
+          safeSessionStorage.removeItem('gmail_connection_time');
 
           throw new Error('Your Gmail session has expired. Please reconnect your Gmail account to continue.');
         }
@@ -587,9 +619,12 @@ export default function ServicePage() {
       // Build request body based on platform
       const requestBody = {
         email: user.email,
+        user_id: user.id,
         keywords: jobRequestData.keywords,
         limit: parseInt(jobRequestData.limit) || 10,
-        platform: jobRequestData.platform
+        platform: jobRequestData.platform,
+        cv_id: jobRequestData.cv_id || null,
+        cover_letter_id: jobRequestData.cover_letter_id || null
       };
 
       // Add platform-specific fields
@@ -597,11 +632,6 @@ export default function ServicePage() {
         requestBody.cities = jobRequestData.cities;
         requestBody.experience = jobRequestData.experience;
         requestBody.freshness = jobRequestData.freshness;
-      } else if (jobRequestData.platform === 'glassdoor') {
-        requestBody.location = jobRequestData.location;
-        requestBody.remote = jobRequestData.remote;
-        requestBody.baseUrl = jobRequestData.baseUrl;
-        requestBody.includeNoSalaryJob = jobRequestData.includeNoSalaryJob;
       } else {
         requestBody.location = jobRequestData.location;
         requestBody.remote = jobRequestData.remote;
@@ -638,15 +668,24 @@ export default function ServicePage() {
           location: '',
           remote: 'remote',
           sort: 'relevant',
-          platform: 'linkedin',
+          platform: 'indeed',
           cities: [],
           experience: 'all',
           freshness: 'all',
-          baseUrl: 'https://www.glassdoor.com',
-          includeNoSalaryJob: false
+          cv_id: '',
+          cover_letter_id: ''
         });
         setSelectedCities([]);
         setCitySearchQuery('');
+        
+        // Refresh campaigns list
+        const refreshResponse = await fetch(`/api/campaigns?email=${encodeURIComponent(user.email)}`);
+        const refreshResult = await refreshResponse.json();
+        if (refreshResult.success) {
+          setCampaigns(refreshResult.campaigns);
+          const active = refreshResult.campaigns.find(c => c.status === 'pending' || c.status === 'processing');
+          setActiveCampaign(active || null);
+        }
       } else {
         const errorMsg = result.error || result.details || 'Failed to submit request';
         console.error('API Error:', result);
@@ -664,6 +703,134 @@ export default function ServicePage() {
     }
   };
 
+  const handleEditCampaign = (campaign) => {
+    setEditingCampaign(campaign);
+    // Populate form with campaign data
+    setJobRequestData({
+      keywords: campaign.keywords || '',
+      limit: campaign.job_limit || 10,
+      location: campaign.location || '',
+      remote: campaign.remote || 'remote',
+      sort: campaign.sort || 'relevant',
+      platform: campaign.platform || 'indeed',
+      cities: campaign.cities || [],
+      experience: campaign.experience || 'all',
+      freshness: campaign.freshness || 'all',
+      baseUrl: campaign.base_url || 'https://www.glassdoor.com',
+      includeNoSalaryJob: campaign.include_no_salary_job || false,
+      cv_id: campaign.cv_id || '',
+      cover_letter_id: campaign.cover_letter_id || ''
+    });
+    setShowEditCampaignModal(true);
+  };
+
+  const handleUpdateCampaign = async () => {
+    if (!editingCampaign) return;
+
+    // Validate
+    if (!jobRequestData.keywords) {
+      setRequestStatus({
+        show: true,
+        type: 'error',
+        message: 'Please enter keywords'
+      });
+      return;
+    }
+
+    setIsSubmittingRequest(true);
+    setRequestStatus({ show: false, type: '', message: '' });
+
+    try {
+      const updateData = {
+        keywords: jobRequestData.keywords,
+        job_limit: parseInt(jobRequestData.limit) || 10,
+        location: jobRequestData.location,
+        remote: jobRequestData.remote,
+        sort: jobRequestData.sort,
+        platform: jobRequestData.platform,
+        cities: jobRequestData.cities,
+        experience: jobRequestData.experience,
+        freshness: jobRequestData.freshness,
+        cv_id: jobRequestData.cv_id || null,
+        cover_letter_id: jobRequestData.cover_letter_id || null,
+        title: `${jobRequestData.keywords} - ${jobRequestData.location || jobRequestData.cities?.join(', ') || 'Multiple locations'}`
+      };
+
+      const response = await fetch(`/api/campaigns/${editingCampaign.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updateData)
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setRequestStatus({
+          show: true,
+          type: 'success',
+          message: 'Campaign updated successfully!'
+        });
+        setShowEditCampaignModal(false);
+        setEditingCampaign(null);
+        // Refresh campaigns
+        const refreshResponse = await fetch(`/api/campaigns?email=${encodeURIComponent(user.email)}`);
+        const refreshResult = await refreshResponse.json();
+        if (refreshResult.success) {
+          setCampaigns(refreshResult.campaigns);
+          const active = refreshResult.campaigns.find(c => c.status === 'pending' || c.status === 'processing');
+          setActiveCampaign(active || null);
+        }
+      } else {
+        throw new Error(result.error || 'Failed to update campaign');
+      }
+    } catch (error) {
+      console.error('Error updating campaign:', error);
+      setRequestStatus({
+        show: true,
+        type: 'error',
+        message: error.message || 'Failed to update campaign. Please try again.'
+      });
+    } finally {
+      setIsSubmittingRequest(false);
+    }
+  };
+
+  const handleDeleteCampaign = async (campaignId) => {
+    if (!confirm('Are you sure you want to delete this campaign?')) return;
+
+    try {
+      const response = await fetch(`/api/campaigns/${campaignId}`, {
+        method: 'DELETE'
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setRequestStatus({
+          show: true,
+          type: 'success',
+          message: 'Campaign deleted successfully!'
+        });
+        // Refresh campaigns
+        setCampaigns(campaigns.filter(c => c.id !== campaignId));
+        if (activeCampaign?.id === campaignId) {
+          setActiveCampaign(null);
+        }
+      } else {
+        throw new Error(result.error || 'Failed to delete campaign');
+      }
+    } catch (error) {
+      console.error('Error deleting campaign:', error);
+      setRequestStatus({
+        show: true,
+        type: 'error',
+        message: error.message || 'Failed to delete campaign.'
+      });
+    }
+  };
+
   const unreadCount = notifications.filter(n => !n.read).length;
 
   if (!user || !serviceId) return null;
@@ -675,7 +842,7 @@ export default function ServicePage() {
       icon: Briefcase,
       color: 'from-blue-500 to-blue-600',
       description: 'Find and apply for jobs worldwide',
-      tabs: ['overview', 'applications', 'saved', 'recommendations'],
+      tabs: ['overview', 'campaigns', 'applications', 'saved'],
       items: jobLeads // Use real job leads from database
     },
     visa: {
@@ -1006,28 +1173,6 @@ export default function ServicePage() {
                 </>
               )}
 
-              {/* Gmail Connection Status - Only show on Jobs page */}
-              {serviceId === 'jobs' && (
-                <div className="flex items-center space-x-2 px-4 py-3 rounded-xl border shadow-md" style={{
-                  backgroundColor: gmailConnected ? 'rgba(0, 200, 0, 0.05)' : 'rgba(255, 150, 0, 0.05)',
-                  borderColor: gmailConnected ? 'rgba(0, 200, 0, 0.3)' : 'rgba(255, 150, 0, 0.3)'
-                }}>
-                  <Mail className="w-5 h-5" style={{ color: gmailConnected ? 'rgba(0, 200, 0, 1)' : 'rgba(255, 150, 0, 1)' }} />
-                  <span className="font-semibold" style={{ color: gmailConnected ? 'rgba(0, 200, 0, 1)' : 'rgba(255, 150, 0, 1)' }}>
-                    {gmailConnected ? 'Gmail Connected' : 'Gmail Disconnected'}
-                  </span>
-                  {!gmailConnected && (
-                    <button
-                      onClick={handleConnectGmail}
-                      className="ml-2 px-4 py-2 rounded-lg font-semibold bg-green-600 text-white hover:bg-green-700 transition-all flex items-center space-x-2"
-                    >
-                      <Mail className="w-4 h-4" />
-                      <span>Connect</span>
-                    </button>
-                  )}
-                </div>
-              )}
-
               <button
                 onClick={() => {
                   if (serviceId === 'jobs') {
@@ -1038,13 +1183,103 @@ export default function ServicePage() {
                 style={{ backgroundColor: 'rgba(187, 40, 44, 1)' }}
               >
                 <Plus className="w-5 h-5" />
-                <span>New Request</span>
+                <span>Campaign</span>
               </button>
             </div>
           </div>
 
           {/* Items Grid */}
           <div className="grid grid-cols-1 gap-6">
+            {/* Campaigns Tab */}
+            {activeTab === 'campaigns' && serviceId === 'jobs' ? (
+              loadingCampaigns ? (
+                <div className="text-center py-16">
+                  <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                  <p className="text-gray-600">Loading campaigns...</p>
+                </div>
+              ) : campaigns.length > 0 ? (
+                campaigns.map((campaign) => (
+                  <div
+                    key={campaign.id}
+                    className="rounded-2xl p-6 shadow-lg border backdrop-blur-md hover:shadow-xl transition-all duration-300"
+                    style={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.7)',
+                      borderColor: 'rgba(255, 255, 255, 0.3)'
+                    }}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h3 className="text-xl font-bold text-gray-900 mb-2">{campaign.title}</h3>
+                        <div className="space-y-2">
+                          <p className="text-sm text-gray-600">
+                            <span className="font-semibold">Keywords:</span> {campaign.keywords}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            <span className="font-semibold">Location:</span> {campaign.location || 'N/A'}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            <span className="font-semibold">Job Limit:</span> {campaign.job_limit}
+                          </p>
+                          {campaign.cv_id && (
+                            <p className="text-sm text-gray-600">
+                              <span className="font-semibold">CV:</span> {campaign.cv_id}
+                            </p>
+                          )}
+                          {campaign.cover_letter_id && (
+                            <p className="text-sm text-gray-600">
+                              <span className="font-semibold">Cover Letter:</span> {campaign.cover_letter_id}
+                            </p>
+                          )}
+                          <p className="text-sm text-gray-600">
+                            <span className="font-semibold">Created:</span> {new Date(campaign.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="ml-6 flex flex-col items-end space-y-3">
+                        <span className={`px-4 py-2 rounded-full text-xs font-semibold ${getStatusColor(campaign.status)}`}>
+                          {campaign.status?.toUpperCase()}
+                        </span>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => handleEditCampaign(campaign)}
+                            disabled={campaign.status === 'completed' || campaign.status === 'failed'}
+                            className="px-4 py-2 rounded-lg font-semibold text-sm bg-blue-100 text-blue-700 hover:bg-blue-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Edit campaign"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteCampaign(campaign.id)}
+                            className="px-4 py-2 rounded-lg font-semibold text-sm bg-red-100 text-red-700 hover:bg-red-200 transition-all"
+                            title="Delete campaign"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-16">
+                  <div className={`w-24 h-24 bg-gradient-to-r ${config.color} rounded-full flex items-center justify-center mx-auto mb-6 opacity-50`}>
+                    <ServiceIcon className="w-12 h-12 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">No Campaigns Yet</h3>
+                  <p className="text-gray-600 mb-6">Create your first campaign to get started</p>
+                  <button
+                    onClick={() => setShowJobRequestModal(true)}
+                    className="px-8 py-4 rounded-xl font-semibold text-white shadow-lg transition-all duration-200"
+                    style={{ backgroundColor: 'rgba(187, 40, 44, 1)' }}
+                  >
+                    Create Campaign
+                  </button>
+                </div>
+              )
+            ) : (
+              /* Regular content for other tabs */
+              <>
             {loadingJobs && serviceId === 'jobs' ? (
               <div className="text-center py-16">
                 <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
@@ -1249,15 +1484,28 @@ export default function ServicePage() {
                     : 'Start by creating your first request'}
                 </p>
                 {serviceId === 'jobs' && (
-                  <button
-                    onClick={() => setShowJobRequestModal(true)}
-                    className="px-8 py-4 rounded-xl font-semibold text-white shadow-lg transition-all duration-200"
-                    style={{ backgroundColor: 'rgba(187, 40, 44, 1)' }}
-                  >
-                    Request Jobs
-                  </button>
+                  <div className="flex flex-col items-center gap-4">
+                    {activeCampaign && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-2">
+                        <p className="text-sm font-semibold text-blue-900 mb-1">Active Campaign Running</p>
+                        <p className="text-xs text-blue-700">{activeCampaign.title}</p>
+                        <p className="text-xs text-blue-600 mt-1">Status: {activeCampaign.status}</p>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => setShowJobRequestModal(true)}
+                      disabled={loadingCampaign || activeCampaign}
+                      className="px-8 py-4 rounded-xl font-semibold text-white shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{ backgroundColor: 'rgba(187, 40, 44, 1)' }}
+                      title={activeCampaign ? 'Please wait for current campaign to complete' : 'Create a new campaign'}
+                    >
+                      {loadingCampaign ? 'Loading...' : activeCampaign ? 'Campaign Active' : 'Create Campaign'}
+                    </button>
+                  </div>
                 )}
               </div>
+            )}
+            </>
             )}
           </div>
         </div>
@@ -1290,294 +1538,212 @@ export default function ServicePage() {
                 </div>
 
                 <div className="space-y-4">
-                  {/* Platform - Move to TOP */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Select Job Platform <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={jobRequestData.platform}
-                      onChange={(e) => {
-                        // Reset form when platform changes
-                        setJobRequestData({
-                          keywords: jobRequestData.keywords,
-                          limit: 10,
-                          location: '',
-                          remote: 'remote',
-                          sort: 'relevant',
-                          platform: e.target.value,
-                          cities: [],
-                          experience: 'all',
-                          freshness: 'all'
-                        });
-                        setSelectedCities([]);
-                        setCitySearchQuery('');
-                      }}
-                      className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-                      style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
-                    >
-                      <option value="linkedin">LinkedIn</option>
-                      <option value="indeed">Indeed</option>
-                      <option value="glassdoor">Glassdoor</option>
-                      <option value="naukri">Naukri</option>
-                      <option value="bayt">Bayt</option>
-                    </select>
-                  </div>
-
                   {/* Keywords */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Keywords <span className="text-red-500">*</span>
+                      Job Title / Keywords <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
                       value={jobRequestData.keywords}
                       onChange={(e) => setJobRequestData({ ...jobRequestData, keywords: e.target.value })}
-                      placeholder="e.g., software engineer"
+                      placeholder="e.g., Software Engineer, Data Analyst"
                       className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none"
                       style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
                     />
                   </div>
 
-                  {/* Location - Hide for Naukri */}
-                  {jobRequestData.platform !== 'naukri' && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Location <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={jobRequestData.location}
-                        onChange={(e) => setJobRequestData({ ...jobRequestData, location: e.target.value })}
-                        placeholder="e.g., United States"
-                        className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none"
-                        style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
-                      />
-                    </div>
-                  )}
-
-                  {/* Location (City) - Show only for Naukri */}
-                  {jobRequestData.platform === 'naukri' && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Location <span className="text-red-500">*</span>
-                      </label>
-                      <div className="space-y-2">
-                        {/* Selected City Display */}
-                        {selectedCities.length > 0 && (
-                          <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-xl">
-                            <span className="text-sm font-medium text-blue-900">
-                              Selected: {selectedCities[0]}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedCities([]);
-                                setJobRequestData({
-                                  ...jobRequestData,
-                                  cities: []
-                                });
-                              }}
-                              className="ml-auto text-blue-600 hover:text-blue-800 font-bold"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        )}
-                        {/* City Search */}
-                        <input
-                          type="text"
-                          value={citySearchQuery}
-                          onChange={(e) => setCitySearchQuery(e.target.value)}
-                          onFocus={() => {
-                            // Clear selection when user starts typing new search
-                            if (selectedCities.length > 0) {
-                              setCitySearchQuery(selectedCities[0]);
-                            }
-                          }}
-                          placeholder={selectedCities.length > 0 ? "Change location..." : "Search location (e.g., Germany, Mumbai, Delhi)..."}
-                          className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none"
-                          style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
-                        />
-                        {/* City Dropdown */}
-                        {citySearchQuery && Object.keys(naukriCities.nameToCode).length > 0 && (
-                          <div className="max-h-48 overflow-y-auto border rounded-lg bg-white shadow-lg z-50 absolute w-full">
-                            {Object.keys(naukriCities.nameToCode)
-                              .filter(cityName =>
-                                cityName.toLowerCase().includes(citySearchQuery.toLowerCase())
-                              )
-                              .slice(0, 20)
-                              .map((cityName) => (
-                                <button
-                                  key={cityName}
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    const cityCode = naukriCities.nameToCode[cityName];
-                                    console.log('Selected city:', cityName, 'Code:', cityCode);
-                                    setSelectedCities([cityName]);
-                                    setJobRequestData(prev => ({
-                                      ...prev,
-                                      cities: [cityCode]
-                                    }));
-                                    setCitySearchQuery('');
-                                  }}
-                                  className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm border-b last:border-b-0"
-                                >
-                                  {cityName}
-                                </button>
-                              ))}
-                            {Object.keys(naukriCities.nameToCode).filter(cityName =>
-                              cityName.toLowerCase().includes(citySearchQuery.toLowerCase())
-                            ).length === 0 && (
-                              <div className="px-4 py-3 text-sm text-gray-500">
-                                No locations found
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Limit */}
+                  {/* Location */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Number of Jobs {jobRequestData.platform === 'naukri' && '(Max 50)'}
+                      Location <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={jobRequestData.location}
+                      onChange={(e) => setJobRequestData({ ...jobRequestData, location: e.target.value })}
+                      placeholder="e.g., United States, London, Remote, Dubai"
+                      className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none"
+                      style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
+                    />
+                  </div>
+
+                  {/* Number of Jobs */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Number of Jobs <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="number"
                       value={jobRequestData.limit}
                       onChange={(e) => setJobRequestData({ ...jobRequestData, limit: e.target.value })}
                       min="1"
-                      max={jobRequestData.platform === 'naukri' ? 50 : 100}
+                      max="100"
+                      placeholder="10"
                       className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none"
                       style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
                     />
                   </div>
 
-                  {/* Experience - Show only for Naukri */}
-                  {jobRequestData.platform === 'naukri' && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Experience Level
-                      </label>
-                      <select
-                        value={jobRequestData.experience}
-                        onChange={(e) => setJobRequestData({ ...jobRequestData, experience: e.target.value })}
-                        className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none"
-                        style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
-                      >
-                        <option value="all">All Experience Levels</option>
-                        <option value="0-1">0-1 years</option>
-                        <option value="1-3">1-3 years</option>
-                        <option value="3-5">3-5 years</option>
-                        <option value="5-10">5-10 years</option>
-                        <option value="10+">10+ years</option>
-                      </select>
-                    </div>
-                  )}
+                  {/* Work Type */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Work Type
+                    </label>
+                    <select
+                      value={jobRequestData.remote}
+                      onChange={(e) => setJobRequestData({ ...jobRequestData, remote: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                      style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
+                    >
+                      <option value="remote">Remote</option>
+                      <option value="onsite">On-site</option>
+                      <option value="hybrid">Hybrid</option>
+                    </select>
+                  </div>
 
-                  {/* Freshness - Show only for Naukri */}
-                  {jobRequestData.platform === 'naukri' && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Job Freshness
-                      </label>
-                      <select
-                        value={jobRequestData.freshness}
-                        onChange={(e) => setJobRequestData({ ...jobRequestData, freshness: e.target.value })}
-                        className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none"
-                        style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
-                      >
-                        <option value="all">All</option>
-                        <option value="1">Last 24 hours</option>
-                        <option value="3">Last 3 days</option>
-                        <option value="7">Last 7 days</option>
-                        <option value="15">Last 15 days</option>
-                        <option value="30">Last 30 days</option>
-                      </select>
-                    </div>
-                  )}
+                  {/* Sort By */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Sort Results By
+                    </label>
+                    <select
+                      value={jobRequestData.sort}
+                      onChange={(e) => setJobRequestData({ ...jobRequestData, sort: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                      style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
+                    >
+                      <option value="relevant">Most Relevant</option>
+                      <option value="recent">Most Recent</option>
+                      <option value="popular">Most Popular</option>
+                    </select>
+                  </div>
 
-                  {/* Base URL - Show only for Glassdoor */}
-                  {jobRequestData.platform === 'glassdoor' && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Glassdoor Region
-                      </label>
-                      <select
-                        value={jobRequestData.baseUrl}
-                        onChange={(e) => setJobRequestData({ ...jobRequestData, baseUrl: e.target.value })}
-                        className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none"
-                        style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
-                      >
-                        <option value="https://www.glassdoor.com">United States (glassdoor.com)</option>
-                        <option value="https://www.glassdoor.co.uk">United Kingdom (glassdoor.co.uk)</option>
-                        <option value="https://www.glassdoor.ca">Canada (glassdoor.ca)</option>
-                        <option value="https://www.glassdoor.com.au">Australia (glassdoor.com.au)</option>
-                        <option value="https://www.glassdoor.de">Germany (glassdoor.de)</option>
-                        <option value="https://www.glassdoor.fr">France (glassdoor.fr)</option>
-                        <option value="https://www.glassdoor.co.in">India (glassdoor.co.in)</option>
-                        <option value="https://www.glassdoor.com.ar">Argentina (glassdoor.com.ar)</option>
-                      </select>
-                    </div>
-                  )}
+                  {/* Experience Level (Naukri) */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Experience Level
+                    </label>
+                    <select
+                      value={jobRequestData.experience}
+                      onChange={(e) => setJobRequestData({ ...jobRequestData, experience: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                      style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
+                    >
+                      <option value="all">All Experience Levels</option>
+                      <option value="0-1">0-1 years</option>
+                      <option value="1-3">1-3 years</option>
+                      <option value="3-5">3-5 years</option>
+                      <option value="5-10">5-10 years</option>
+                      <option value="10+">10+ years</option>
+                    </select>
+                  </div>
 
-                  {/* Include No Salary Jobs - Show only for Glassdoor */}
-                  {jobRequestData.platform === 'glassdoor' && (
-                    <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-xl">
-                      <input
-                        type="checkbox"
-                        id="includeNoSalaryJob"
-                        checked={jobRequestData.includeNoSalaryJob}
-                        onChange={(e) => setJobRequestData({ ...jobRequestData, includeNoSalaryJob: e.target.checked })}
-                        className="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                      />
-                      <label htmlFor="includeNoSalaryJob" className="text-sm font-medium text-gray-700 cursor-pointer">
-                        Include jobs without salary information
-                      </label>
-                    </div>
-                  )}
+                  {/* Job Freshness (Naukri) */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Job Posting Recency
+                    </label>
+                    <select
+                      value={jobRequestData.freshness}
+                      onChange={(e) => setJobRequestData({ ...jobRequestData, freshness: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                      style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
+                    >
+                      <option value="all">All</option>
+                      <option value="1">Last 24 hours</option>
+                      <option value="3">Last 3 days</option>
+                      <option value="7">Last 7 days</option>
+                      <option value="15">Last 15 days</option>
+                      <option value="30">Last 30 days</option>
+                    </select>
+                  </div>
 
-                  {/* Remote - Hide for Naukri */}
-                  {jobRequestData.platform !== 'naukri' && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Work Type
-                      </label>
-                      <select
-                        value={jobRequestData.remote}
-                        onChange={(e) => setJobRequestData({ ...jobRequestData, remote: e.target.value })}
-                        className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none"
-                        style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
-                      >
-                        <option value="remote">Remote</option>
-                        <option value="onsite">On-site</option>
-                        <option value="hybrid">Hybrid</option>
-                      </select>
-                    </div>
-                  )}
+                  {/* CV Selection */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Select CV/Resume
+                    </label>
+                    <select
+                      value={jobRequestData.cv_id}
+                      onChange={(e) => setJobRequestData({ ...jobRequestData, cv_id: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                      style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
+                    >
+                      <option value="">No CV selected</option>
+                      {cvs.map((cv) => (
+                        <option key={cv.name} value={cv.name}>
+                          {cv.name}
+                        </option>
+                      ))}
+                    </select>
+                    {cvs.length === 0 && (
+                      <p className="text-xs text-gray-500 mt-1">No CVs uploaded yet</p>
+                    )}
+                  </div>
 
-                  {/* Sort - Hide for Naukri and Glassdoor */}
-                  {jobRequestData.platform !== 'naukri' && jobRequestData.platform !== 'glassdoor' && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Sort By
-                      </label>
-                      <select
-                        value={jobRequestData.sort}
-                        onChange={(e) => setJobRequestData({ ...jobRequestData, sort: e.target.value })}
-                        className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none"
-                        style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
+                  {/* Cover Letter Selection */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Select Cover Letter
+                    </label>
+                    <select
+                      value={jobRequestData.cover_letter_id}
+                      onChange={(e) => setJobRequestData({ ...jobRequestData, cover_letter_id: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                      style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
+                    >
+                      <option value="">No cover letter selected</option>
+                      {coverLetters.map((cl) => (
+                        <option key={cl.name} value={cl.name}>
+                          {cl.name}
+                        </option>
+                      ))}
+                    </select>
+                    {coverLetters.length === 0 && (
+                      <p className="text-xs text-gray-500 mt-1">No cover letters uploaded yet</p>
+                    )}
+                  </div>
+
+                  {/* Gmail Connection */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Gmail Account
+                    </label>
+                    {gmailConnected ? (
+                      <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-xl">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
+                            <Mail className="w-5 h-5 text-white" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-green-900">Connected</p>
+                            <p className="text-xs text-green-700">{gmailAddress}</p>
+                          </div>
+                        </div>
+                        <CheckCircle className="w-5 h-5 text-green-500" />
+                      </div>
+                    ) : (
+                      <button
+                        onClick={handleConnectGmail}
+                        className="w-full flex items-center justify-center space-x-3 px-6 py-4 bg-white border-2 border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all duration-200"
                       >
-                        <option value="relevant">Most Relevant</option>
-                        <option value="recent">Most Recent</option>
-                        <option value="popular">Most Popular</option>
-                      </select>
-                    </div>
-                  )}
+                        <Mail className="w-5 h-5" />
+                        <span>Connect Gmail Account</span>
+                      </button>
+                    )}
+                    <p className="text-xs text-gray-500 mt-2">
+                      Connect your Gmail to automatically send job applications
+                    </p>
+                  </div>
+
+                  {/* Info Box */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                    <p className="text-sm text-blue-900">
+                      <strong>Note:</strong> This form includes all options for comprehensive job search. 
+                      Not all fields apply to every job platform, but filling them ensures the best results across all sources.
+                    </p>
+                  </div>
                 </div>
 
                 {/* Submit Button */}
@@ -1607,6 +1773,165 @@ export default function ServicePage() {
                         Submitting...
                       </span>
                     ) : 'Submit Request'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Campaign Modal */}
+        {showEditCampaignModal && editingCampaign && serviceId === 'jobs' && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div
+              className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[100]"
+              onClick={() => {
+                setShowEditCampaignModal(false);
+                setEditingCampaign(null);
+              }}
+            />
+            <div
+              className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl border backdrop-blur-md z-[101]"
+              style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                borderColor: 'rgba(255, 255, 255, 0.3)'
+              }}
+            >
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-2xl font-bold" style={{ color: 'rgba(0, 50, 83, 1)' }}>
+                    Edit Campaign
+                  </h3>
+                  <button
+                    onClick={() => {
+                      setShowEditCampaignModal(false);
+                      setEditingCampaign(null);
+                    }}
+                    className="p-2 rounded-lg hover:bg-gray-100"
+                  >
+                    <X className="w-6 h-6" style={{ color: 'rgba(0, 50, 83, 0.8)' }} />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Keywords */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Job Title / Keywords <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={jobRequestData.keywords}
+                      onChange={(e) => setJobRequestData({ ...jobRequestData, keywords: e.target.value })}
+                      placeholder="e.g., Software Engineer, Data Analyst"
+                      className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none"
+                      style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
+                    />
+                  </div>
+
+                  {/* Location */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Location <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={jobRequestData.location}
+                      onChange={(e) => setJobRequestData({ ...jobRequestData, location: e.target.value })}
+                      placeholder="e.g., United States, London, Remote, Dubai"
+                      className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none"
+                      style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
+                    />
+                  </div>
+
+                  {/* Number of Jobs */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Number of Jobs <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      value={jobRequestData.limit}
+                      onChange={(e) => setJobRequestData({ ...jobRequestData, limit: e.target.value })}
+                      min="1"
+                      max="100"
+                      placeholder="10"
+                      className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none"
+                      style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
+                    />
+                  </div>
+
+                  {/* CV Selection */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Select CV/Resume
+                    </label>
+                    <select
+                      value={jobRequestData.cv_id}
+                      onChange={(e) => setJobRequestData({ ...jobRequestData, cv_id: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                      style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
+                    >
+                      <option value="">No CV selected</option>
+                      {cvs.map((cv) => (
+                        <option key={cv.name} value={cv.name}>
+                          {cv.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Cover Letter Selection */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Select Cover Letter
+                    </label>
+                    <select
+                      value={jobRequestData.cover_letter_id}
+                      onChange={(e) => setJobRequestData({ ...jobRequestData, cover_letter_id: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                      style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
+                    >
+                      <option value="">No cover letter selected</option>
+                      {coverLetters.map((cl) => (
+                        <option key={cl.name} value={cl.name}>
+                          {cl.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Update Button */}
+                <div className="mt-6 flex space-x-3">
+                  <button
+                    onClick={() => {
+                      setShowEditCampaignModal(false);
+                      setEditingCampaign(null);
+                    }}
+                    className="flex-1 px-6 py-4 rounded-xl font-semibold border transition-all duration-200"
+                    style={{ 
+                      borderColor: 'rgba(0, 50, 83, 0.3)',
+                      color: 'rgba(0, 50, 83, 1)'
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleUpdateCampaign}
+                    disabled={isSubmittingRequest}
+                    className="flex-1 px-6 py-4 rounded-xl font-semibold text-white transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ backgroundColor: 'rgba(187, 40, 44, 1)' }}
+                  >
+                    {isSubmittingRequest ? (
+                      <span className="flex items-center justify-center">
+                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Updating...
+                      </span>
+                    ) : 'Update Campaign'}
                   </button>
                 </div>
               </div>

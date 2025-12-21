@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabase';
 import { useToast } from './ToastContext';
+import { safeSessionStorage } from '../utils/safeStorage';
 
 const AuthContext = createContext();
 
@@ -306,15 +307,24 @@ export function AuthProvider({ children }) {
     try {
       console.log('🚪 Logging out...');
 
-      // Sign out from Supabase Auth (main authentication)
-      const { error } = await supabase.auth.signOut();
+      // Sign out from Supabase Auth with timeout
+      const signOutPromise = supabase.auth.signOut();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Logout timeout')), 3000)
+      );
 
-      if (error) {
-        console.error('Logout error:', error);
+      try {
+        const { error } = await Promise.race([signOutPromise, timeoutPromise]);
+        if (error) {
+          console.error('Logout error:', error);
+        }
+        console.log('✅ Supabase sign out completed');
+      } catch (timeoutError) {
+        console.warn('⚠️ Logout timeout - forcing local cleanup:', timeoutError.message);
       }
 
       // Clear Gmail session connection time (tokens are in database)
-      sessionStorage.removeItem('gmail_connection_time');
+      safeSessionStorage.removeItem('gmail_connection_time');
       console.log('✅ Gmail session cleared');
 
       // Clear user state and redirect
@@ -325,7 +335,7 @@ export function AuthProvider({ children }) {
       console.error('Logout exception:', error);
 
       // Even if logout fails, clear everything
-      sessionStorage.removeItem('gmail_connection_time');
+      safeSessionStorage.removeItem('gmail_connection_time');
 
       setUser(null);
       router.push('/');

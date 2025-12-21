@@ -25,6 +25,7 @@ export default function OnboardingNew() {
     updateVisaCheck,
     setVisaEligibility,
     scheduleCall,
+    saveTempDocumentMetadata,
     uploadDocuments,
     setCurrentStep,
     markStepCompleted
@@ -99,7 +100,7 @@ export default function OnboardingNew() {
           setCurrentMainStep(4);
           setToast({ message: 'Payment successful! Please schedule your onboarding call.', type: 'success' });
 
-          // Clean URL
+          // Clean URL without refreshing
           router.replace('/onboarding-new?step=4', undefined, { shallow: true });
         } catch (error) {
           console.error('Error completing payment step:', error);
@@ -290,45 +291,19 @@ export default function OnboardingNew() {
 
   const handlePersonalDetailsSubmit = async () => {
     if (!validatePersonalDetails()) {
+      setToast({ message: 'Please fill in all required fields correctly', type: 'error' });
       return;
     }
 
-    // CRITICAL CHECK: Make sure relocation type is set before proceeding
-    let relocType = onboardingData.relocationType;
-
-    console.log('🔍 relocationType from context:', relocType);
-
+    const relocType = onboardingData.relocationType;
     if (!relocType || (relocType !== 'gcc' && relocType !== 'europe')) {
-      console.error('🚨 CRITICAL: Relocation type is not set or invalid!');
-      console.error('🚨 This should NOT happen - user should not be on step 1 without selecting region');
-      setToast({
-        message: 'Please select your destination (GCC or Europe) first.',
-        type: 'error'
-      });
-      setCurrentMainStep(0); // Force them back to step 0
+      setToast({ message: 'Please select your destination (GCC or Europe) first.', type: 'error' });
+      setCurrentMainStep(0);
       return;
     }
 
-    console.log('📝 Saving personal details to database...');
-    console.log('✅ Relocation type validated:', relocType);
-    console.log('📋 Personal form data being saved:', {
-      fullName: personalForm.fullName,
-      email: personalForm.email,
-      telephone: personalForm.telephone,
-      street: personalForm.street,
-      city: personalForm.city,
-      state: personalForm.state,
-      zip: personalForm.zip,
-      country: personalForm.country
-    });
-    
-    console.log('⏳ Setting loading to true...');
     setLoading(true);
-
     try {
-      console.log('🔄 Starting database save process...');
-
-      // Save to database immediately
       const detailsToSave = {
         fullName: personalForm.fullName,
         email: personalForm.email,
@@ -342,58 +317,27 @@ export default function OnboardingNew() {
         }
       };
 
-      console.log('💾 Calling updatePersonalDetails with:', JSON.stringify(detailsToSave, null, 2));
-
-      // Remove timeout wrapper - let it complete naturally
+      console.log('💾 Saving personal details...');
       const updatedData = await updatePersonalDetails(detailsToSave);
+      await markStepCompleted(1, updatedData);
+      
+      const nextStep = relocType === 'gcc' ? 3 : 2;
+      await setCurrentStep(nextStep, updatedData);
 
-      console.log('✅ updatePersonalDetails completed, marking step 1 as complete...');
+      setToast({ message: 'Personal details saved successfully!', type: 'success' });
 
-      // Pass the updated data to markStepCompleted to avoid stale state
-      const completedData = await markStepCompleted(1, updatedData);
-
-      console.log('✅ Personal details saved to database successfully');
-      console.log('📊 Completed data:', completedData);
-
-      // Move to next step based on relocation type
+      // Navigate to next step without refreshing
       if (relocType === 'gcc') {
-        console.log('➡️ GCC selected - going directly to payment (skipping visa check)');
-        console.log('➡️ Setting currentMainStep to 3 (Payment)');
-        await setCurrentStep(3, completedData); // Update context current step
-
-        // Turn off loading BEFORE state update to prevent UI freeze
-        setLoading(false);
-
-        // Small delay to ensure state is synced
-        await new Promise(resolve => setTimeout(resolve, 100));
-        setCurrentMainStep(3); // Go to payment
-      } else if (relocType === 'europe') {
-        console.log('➡️ Europe selected - going to visa check');
-        await setCurrentStep(2, completedData); // Update context current step
-
-        // Turn off loading BEFORE state update to prevent UI freeze
-        setLoading(false);
-
-        // Small delay to ensure state is synced
-        await new Promise(resolve => setTimeout(resolve, 100));
-        setCurrentMainStep(2); // Go to visa check
-        setVisaQuestionStep(0); // Reset visa questions to start
+        setCurrentMainStep(3);
+      } else {
+        setCurrentMainStep(2);
+        setVisaQuestionStep(0);
       }
     } catch (error) {
-      console.error('❌ Error saving personal details:', error);
-      console.error('Error details:', {
-        message: error.message,
-        code: error.code,
-        details: error.details,
-        stack: error.stack
-      });
-
+      console.error('❌ Error:', error);
+      setToast({ message: error.message || 'Failed to save. Please try again.', type: 'error' });
+    } finally {
       setLoading(false);
-
-      setToast({
-        message: `Failed to save personal details: ${error.message || 'Unknown error'}. Please try again.`,
-        type: 'error'
-      });
     }
   };
 
@@ -401,18 +345,23 @@ export default function OnboardingNew() {
     if (visaQuestionStep < 8) {
       setVisaQuestionStep(visaQuestionStep + 1);
     } else {
-      // All questions answered, calculate eligibility
-      console.log('📝 Saving visa check answers to database...');
-      
-      // Save visa check data to database
-      const updatedData = await updateVisaCheck(visaForm);
-      await markStepCompleted(2, updatedData);
-      
-      const result = calculateVisaEligibility(visaForm);
-      await setVisaEligibility(result.eligible ? 'eligible' : 'not_eligible');
-      
-      console.log('✅ Visa check saved to database');
-      setCurrentMainStep(2.5); // Show result screen
+      setLoading(true);
+      try {
+        console.log('💾 Saving visa check...');
+        const updatedData = await updateVisaCheck(visaForm);
+        await markStepCompleted(2, updatedData);
+
+        const result = calculateVisaEligibility(visaForm);
+        await setVisaEligibility(result.eligible ? 'eligible' : 'not_eligible');
+
+        setToast({ message: 'Visa eligibility check completed!', type: 'success' });
+        setCurrentMainStep(2.5);
+      } catch (error) {
+        console.error('❌ Error:', error);
+        setToast({ message: error.message || 'Failed to save. Please try again.', type: 'error' });
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -440,10 +389,28 @@ export default function OnboardingNew() {
   // Handle plan selection - Redirect to unified payment page (PayPal + Tilopay)
   const handlePlanSelection = (plan) => {
     console.log('📦 Plan selected:', plan.name);
-    // Redirect to unified payment page with PayPal as primary and Tilopay as fallback
-    // URL encode the plan name to handle special characters like '+'
-    const planSlug = encodeURIComponent(plan.name.toLowerCase());
-    router.push(`/payment-unified?plan=${planSlug}`);
+    
+    // Get plan amount
+    const planAmounts = {
+      'silver': 299,
+      'gold': 699,
+      'diamond': 1599,
+      'diamond+': 1  // Test price: $1
+    };
+    
+    const amount = planAmounts[plan.name.toLowerCase()] || 299;
+    
+    // Redirect to minimal Tilopay page with plan details
+    const params = new URLSearchParams({
+      amount: amount,
+      planName: plan.name,
+      userId: user.id,
+      email: personalForm.email || user.email,
+      returnUrl: window.location.origin + '/onboarding-new?payment=success'
+    });
+    
+    // Open in same window
+    window.location.href = `/test-tilopay-minimal.html?${params.toString()}`;
   };
 
 
@@ -453,33 +420,111 @@ export default function OnboardingNew() {
       return;
     }
 
-    console.log('📅 Saving call schedule to database...');
-    
-    // Save call schedule to database immediately
-    const updatedData = await scheduleCall({
-      date: callDate,
-      time: callTime,
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      scheduledAt: new Date().toISOString()
-    });
+    setLoading(true);
+    try {
+      console.log('� Starting call schedule save process...');
+      console.log('💾 Step 1: Saving call schedule to database...');
 
-    await markStepCompleted(4, updatedData);
-    
-    console.log('✅ Call schedule saved to database');
-    
-    setToast({ message: 'Call scheduled successfully!', type: 'success' });
-    setTimeout(() => {
-      setCurrentMainStep(5);
-      setCurrentStep(5);
-    }, 1000);
+      const callDetails = {
+        date: callDate,
+        time: callTime,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        scheduledAt: new Date().toISOString()
+      };
+
+      const updatedData = await scheduleCall(callDetails);
+      console.log('✅ Step 1 Complete: Call schedule saved');
+      console.log('📊 Database Response:', {
+        currentStep: updatedData.currentStep,
+        completedSteps: updatedData.completedSteps,
+        callScheduleDetails: updatedData.callScheduleDetails
+      });
+      
+      setToast({ message: 'Call schedule saved to database ✓', type: 'success' });
+
+      console.log('💾 Step 2: Marking step 4 as completed...');
+      await markStepCompleted(4, updatedData);
+      console.log('✅ Step 2 Complete: Step 4 marked as completed');
+
+      console.log('💾 Step 3: Setting current step to 5...');
+      await setCurrentStep(5, updatedData);
+      console.log('✅ Step 3 Complete: Current step set to 5');
+
+      setToast({ message: 'Call scheduled successfully! Proceeding to final step...', type: 'success' });
+
+      // Small delay to show success message
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      // Refresh page to ensure database is fully synced before document upload
+      console.log('🔄 Refreshing page to ensure data is saved...');
+      window.location.reload();
+    } catch (error) {
+      console.error('❌ CRITICAL ERROR scheduling call:', error);
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack
+      });
+      setToast({ 
+        message: `Failed to schedule call: ${error.message || 'Please try again'}`, 
+        type: 'error' 
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDocumentUpload = (docType, file) => {
     console.log('📄 Document selected:', { type: docType, fileName: file?.name, size: file?.size });
+
+    // Update local state immediately
     setDocuments(prev => ({
       ...prev,
       [docType]: file
     }));
+
+    // Save metadata to context (non-blocking - fire and forget)
+    if (file) {
+      const metadata = {
+        [docType]: {
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          lastModified: file.lastModified
+        }
+      };
+      // Don't await - save in background
+      saveTempDocumentMetadata(metadata).catch(err => {
+        console.error('Failed to save temp metadata (non-blocking):', err);
+      });
+    }
+  };
+
+  const handleMultipleDocumentUpload = (docType, files) => {
+    console.log('📄 Multiple documents selected:', { type: docType, count: files.length });
+
+    // Update local state immediately
+    setDocuments(prev => ({
+      ...prev,
+      [docType]: files
+    }));
+
+    // Save metadata to context (non-blocking - fire and forget)
+    if (files && files.length > 0) {
+      const filesMetadata = files.map(file => ({
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        lastModified: file.lastModified
+      }));
+
+      const metadata = {
+        [docType]: filesMetadata
+      };
+      // Don't await - save in background
+      saveTempDocumentMetadata(metadata).catch(err => {
+        console.error('Failed to save temp metadata (non-blocking):', err);
+      });
+    }
   };
 
   const handleDocumentsSubmit = async () => {
@@ -587,35 +632,41 @@ export default function OnboardingNew() {
 
       console.log('✅ All documents uploaded successfully!');
 
-      // Save document metadata to database (file paths, not file objects)
-      console.log('💾 Saving document metadata to database...');
+      // Save document metadata to database (fire and forget - don't wait)
+      console.log('💾 Saving document metadata in background...');
+      
+      // Don't await - let it save in background
+      uploadDocuments(uploadResults)
+        .then((updatedData) => {
+          console.log('✅ Document metadata saved in background!');
+          // Mark step completed in background
+          return markStepCompleted(5, updatedData);
+        })
+        .then(() => {
+          console.log('✅ Step 5 marked complete in background!');
+          // Reload profile in background
+          return reloadUserProfile();
+        })
+        .then(() => {
+          console.log('✅ User profile reloaded in background!');
+        })
+        .catch((error) => {
+          console.error('❌ Background save error (non-blocking):', error);
+          // Don't show error to user - they're already redirected
+        });
 
-      const updatedData = await uploadDocuments(uploadResults);
-      await markStepCompleted(5, updatedData);
-
-      console.log('✅ All data saved to database!');
-      console.log('🔄 Reloading user profile to check onboarding status...');
-
-      // Reload user profile to get updated onboarding_complete flag
-      if (reloadUserProfile) {
-        await reloadUserProfile();
-      }
-
-      // Wait a moment for profile to update
-      await new Promise(resolve => setTimeout(resolve, 500));
-
+      // Redirect immediately without waiting for database
+      console.log('✅ Files uploaded! Redirecting to dashboard immediately...');
       setLoading(false);
-
       setToast({
-        message: 'Onboarding complete! Redirecting to dashboard...',
-        type: 'success',
-        duration: 2000
+        message: 'Documents uploaded successfully! Redirecting...',
+        type: 'success'
       });
 
-      // Auto-redirect after 2 seconds
+      // Redirect to dashboard immediately
       setTimeout(() => {
         window.location.href = '/dashboard/customer';
-      }, 2000);
+      }, 1500);
 
     } catch (error) {
       console.error('❌ Document upload error:', error);
@@ -1791,10 +1842,15 @@ export default function OnboardingNew() {
                         onChange={(e) => handleDocumentUpload('passport', e.target.files[0])}
                         className="w-full text-sm"
                       />
-                      {documents.passport && (
+                      {(documents.passport || onboardingData.tempDocumentMetadata?.passport) && (
                         <div className="mt-2 flex items-center" style={{ color: 'rgba(34, 197, 94, 1)' }}>
                           <CheckCircle className="w-4 h-4 mr-2" />
-                          <span className="text-sm">{documents.passport.name}</span>
+                          <span className="text-sm">
+                            {documents.passport?.name || onboardingData.tempDocumentMetadata?.passport?.name}
+                            {!documents.passport && onboardingData.tempDocumentMetadata?.passport && (
+                              <span className="ml-2 text-xs text-amber-600">(Please re-select)</span>
+                            )}
+                          </span>
                         </div>
                       )}
                     </div>
@@ -1810,13 +1866,18 @@ export default function OnboardingNew() {
                         type="file"
                         accept=".pdf,.jpg,.jpeg,.png"
                         multiple
-                        onChange={(e) => setDocuments({ ...documents, educationalCertificates: Array.from(e.target.files) })}
+                        onChange={(e) => handleMultipleDocumentUpload('educationalCertificates', Array.from(e.target.files))}
                         className="w-full text-sm"
                       />
-                      {documents.educationalCertificates.length > 0 && (
+                      {(documents.educationalCertificates.length > 0 || onboardingData.tempDocumentMetadata?.educationalCertificates?.length > 0) && (
                         <div className="mt-2" style={{ color: 'rgba(34, 197, 94, 1)' }}>
                           <CheckCircle className="w-4 h-4 inline mr-2" />
-                          <span className="text-sm">{documents.educationalCertificates.length} file(s) selected</span>
+                          <span className="text-sm">
+                            {documents.educationalCertificates.length || onboardingData.tempDocumentMetadata?.educationalCertificates?.length || 0} file(s) selected
+                            {documents.educationalCertificates.length === 0 && onboardingData.tempDocumentMetadata?.educationalCertificates?.length > 0 && (
+                              <span className="ml-2 text-xs text-amber-600">(Please re-select)</span>
+                            )}
+                          </span>
                         </div>
                       )}
                     </div>
@@ -1832,13 +1893,18 @@ export default function OnboardingNew() {
                         type="file"
                         accept=".pdf,.jpg,.jpeg,.png"
                         multiple
-                        onChange={(e) => setDocuments({ ...documents, experienceLetters: Array.from(e.target.files) })}
+                        onChange={(e) => handleMultipleDocumentUpload('experienceLetters', Array.from(e.target.files))}
                         className="w-full text-sm"
                       />
-                      {documents.experienceLetters.length > 0 && (
+                      {(documents.experienceLetters.length > 0 || onboardingData.tempDocumentMetadata?.experienceLetters?.length > 0) && (
                         <div className="mt-2" style={{ color: 'rgba(34, 197, 94, 1)' }}>
                           <CheckCircle className="w-4 h-4 inline mr-2" />
-                          <span className="text-sm">{documents.experienceLetters.length} file(s) selected</span>
+                          <span className="text-sm">
+                            {documents.experienceLetters.length || onboardingData.tempDocumentMetadata?.experienceLetters?.length || 0} file(s) selected
+                            {documents.experienceLetters.length === 0 && onboardingData.tempDocumentMetadata?.experienceLetters?.length > 0 && (
+                              <span className="ml-2 text-xs text-amber-600">(Please re-select)</span>
+                            )}
+                          </span>
                         </div>
                       )}
                     </div>
@@ -1856,10 +1922,15 @@ export default function OnboardingNew() {
                         onChange={(e) => handleDocumentUpload('jobOffer', e.target.files[0])}
                         className="w-full text-sm"
                       />
-                      {documents.jobOffer && (
+                      {(documents.jobOffer || onboardingData.tempDocumentMetadata?.jobOffer) && (
                         <div className="mt-2 flex items-center" style={{ color: 'rgba(34, 197, 94, 1)' }}>
                           <CheckCircle className="w-4 h-4 mr-2" />
-                          <span className="text-sm">{documents.jobOffer.name}</span>
+                          <span className="text-sm">
+                            {documents.jobOffer?.name || onboardingData.tempDocumentMetadata?.jobOffer?.name}
+                            {!documents.jobOffer && onboardingData.tempDocumentMetadata?.jobOffer && (
+                              <span className="ml-2 text-xs text-amber-600">(Please re-select)</span>
+                            )}
+                          </span>
                         </div>
                       )}
                     </div>

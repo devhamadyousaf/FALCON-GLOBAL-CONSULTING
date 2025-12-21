@@ -8,10 +8,35 @@ import { ToastProvider } from '../context/ToastContext';
 import { useRouter } from 'next/router';
 import { useEffect } from 'react';
 import * as gtag from '../lib/gtag';
+import SafeStorage from '../utils/safeStorage';
 
 function AppInner({ Component, pageProps }) {
   const { loading } = useLoading();
   const router = useRouter();
+
+  // Check storage health on app initialization
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // Check if localStorage is available and working
+      const localStorageAvailable = SafeStorage.isStorageAvailable(localStorage);
+      const sessionStorageAvailable = SafeStorage.isStorageAvailable(sessionStorage);
+
+      if (!localStorageAvailable) {
+        console.warn('⚠️ localStorage not available or corrupted, attempting recovery...');
+        SafeStorage.attemptStorageRecovery(localStorage);
+      }
+
+      if (!sessionStorageAvailable) {
+        console.warn('⚠️ sessionStorage not available or corrupted, attempting recovery...');
+        SafeStorage.attemptStorageRecovery(sessionStorage);
+      }
+
+      // Log storage usage for debugging
+      const localStorageSize = SafeStorage.getStorageSize(localStorage);
+      const sessionStorageSize = SafeStorage.getStorageSize(sessionStorage);
+      console.log(`📊 Storage usage - localStorage: ${(localStorageSize / 1024).toFixed(2)}KB, sessionStorage: ${(sessionStorageSize / 1024).toFixed(2)}KB`);
+    }
+  }, []);
 
   // Track page views on route change
   useEffect(() => {

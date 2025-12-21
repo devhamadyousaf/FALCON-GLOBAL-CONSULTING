@@ -96,22 +96,33 @@ export default function TilopayPaymentForm({
 
       console.log('🔄 Initializing Tilopay SDK...');
 
+      // Safely extract user details with fallbacks
+      const firstName = userDetails?.firstName || userDetails?.fullName?.split(' ')[0] || 'Customer';
+      const lastName = userDetails?.lastName || userDetails?.fullName?.split(' ').slice(1).join(' ') || 'User';
+      const address = userDetails?.address || userDetails?.street || 'N/A';
+      const city = userDetails?.city || 'N/A';
+      const state = userDetails?.state || '';
+      const zip = userDetails?.zip || '00000';
+      const country = userDetails?.country || 'CR';
+      const phone = userDetails?.phone || userDetails?.telephone || '';
+      const email = userDetails?.email || 'customer@example.com';
+
       // Initialize Tilopay SDK - EXACTLY like test-tilopay-minimal.html
       const initialize = await window.Tilopay.Init({
         token: TILOPAY_TOKEN,
         currency: currency,
         language: "en",
         amount: amount,
-        billToFirstName: userDetails.firstName || "Customer",
-        billToLastName: userDetails.lastName || "User",
-        billToAddress: userDetails.address || "N/A",
+        billToFirstName: firstName,
+        billToLastName: lastName,
+        billToAddress: address,
         billToAddress2: "",
-        billToCity: userDetails.city || "N/A",
-        billToState: userDetails.state || "",
-        billToZipPostCode: userDetails.zip || "00000",
-        billToCountry: userDetails.country || "CR",
-        billToTelephone: userDetails.phone || "",
-        billToEmail: userDetails.email || "customer@example.com",
+        billToCity: city,
+        billToState: state,
+        billToZipPostCode: zip,
+        billToCountry: country,
+        billToTelephone: phone,
+        billToEmail: email,
         orderNumber: `order-${Date.now()}`,
         capture: 1,
         redirect: window.location.origin + "/onboarding-new?payment=success",

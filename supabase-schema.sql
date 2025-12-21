@@ -89,6 +89,7 @@ CREATE TABLE IF NOT EXISTS public.onboarding_data (
   -- Documents (Step 5)
   documents_uploaded BOOLEAN DEFAULT FALSE,
   documents JSONB DEFAULT '{}'::jsonb,
+  temp_document_metadata JSONB DEFAULT '{}'::jsonb,
 
   -- Progress Tracking
   current_step INTEGER DEFAULT 0,

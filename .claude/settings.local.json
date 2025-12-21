@@ -25,7 +25,8 @@
       "Bash(if [ -d \"public/lib\" ])",
       "Bash(then echo \"public/lib exists\")",
       "Bash(else mkdir -p public/lib)",
-      "Bash(fi)"
+      "Bash(fi)",
+      "Bash(wait)"
     ],
     "deny": [],
     "ask": []

@@ -10,7 +10,7 @@ import { useOnboarding } from '../context/OnboardingContext';
 export default function DashboardGuard({ children }) {
   const router = useRouter();
   const { user, isAuthenticated, loading: authLoading } = useAuth();
-  const { canAccessDashboard, onboardingData } = useOnboarding();
+  const { canAccessDashboard, onboardingData, loading: onboardingLoading } = useOnboarding();
 
   useEffect(() => {
     if (!authLoading) {
@@ -25,17 +25,26 @@ export default function DashboardGuard({ children }) {
         return;
       }
 
-      // Check if onboarding is complete
-      if (!canAccessDashboard()) {
-        // Redirect to appropriate onboarding step
+      // Check onboarding_complete from user profile (more reliable than onboarding context)
+      // If user.onboardingComplete is true, they can access dashboard
+      // This avoids issues with onboarding context database timeouts
+      if (user?.onboardingComplete === true) {
+        console.log('✅ User onboarding complete, allowing dashboard access');
+        return;
+      }
+
+      // Fallback: Check if onboarding is complete via context
+      // Only check if onboarding data has loaded (not still loading)
+      if (!onboardingLoading && !canAccessDashboard()) {
+        console.log('❌ Onboarding not complete, redirecting to onboarding');
         router.push('/onboarding-new');
         return;
       }
     }
-  }, [isAuthenticated, user, authLoading, canAccessDashboard, router]);
+  }, [isAuthenticated, user, authLoading, canAccessDashboard, onboardingLoading, router]);
 
-  // Show loading state while checking auth
-  if (authLoading) {
+  // Show loading state while checking auth or onboarding
+  if (authLoading || onboardingLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -47,7 +56,10 @@ export default function DashboardGuard({ children }) {
   }
 
   // Don't render children until checks are complete
-  if (!isAuthenticated || (!canAccessDashboard() && user?.role !== 'admin')) {
+  // Allow access if user.onboardingComplete is true OR canAccessDashboard() returns true
+  const hasAccess = user?.role === 'admin' || user?.onboardingComplete === true || canAccessDashboard();
+  
+  if (!isAuthenticated || !hasAccess) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
