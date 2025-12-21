@@ -24,8 +24,8 @@ export default async function handler(req, res) {
       });
     }
 
-    // Prepare webhook data (n8n handles the scraping)
-    const webhookData = {
+    // Prepare preprocessed data
+    const preprocessedData = {
       email: user_email,
       keywords,
       limit: parseInt(limit),
@@ -35,43 +35,14 @@ export default async function handler(req, res) {
       platform: 'linkedin'
     };
 
-    // Send to n8n webhook
-    const webhookUrl = 'https://etgstkql.rcld.app/webhook/9ce7564c-363b-477c-8c26-297e208d0806';
+    console.log('LinkedIn data preprocessed successfully');
 
-    const webhookResponse = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(webhookData)
-    });
-
-    if (!webhookResponse.ok) {
-      console.error('Webhook failed:', webhookResponse.status);
-      return res.status(500).json({
-        error: 'Failed to initiate job scraping',
-        details: `Webhook returned status ${webhookResponse.status}`
-      });
-    }
-
-    const responseText = await webhookResponse.text();
-    console.log('Webhook response:', responseText);
-
-    let webhookResult = {};
-    try {
-      webhookResult = responseText ? JSON.parse(responseText) : {};
-    } catch (e) {
-      console.error('Failed to parse webhook response:', e);
-      webhookResult = { message: responseText };
-    }
-
-    console.log('LinkedIn scraping initiated successfully');
-
+    // Return preprocessed data without calling webhook
     return res.status(200).json({
       success: true,
-      message: 'Job scraping initiated successfully',
+      message: 'Data preprocessed successfully',
       platform: 'linkedin',
-      data: webhookResult
+      data: preprocessedData
     });
 
   } catch (error) {

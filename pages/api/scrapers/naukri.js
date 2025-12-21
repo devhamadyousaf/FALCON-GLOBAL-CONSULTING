@@ -54,58 +54,29 @@ export default async function handler(req, res) {
     console.log('Original cities:', cities);
     console.log('Converted city codes:', cityCodes);
 
-    // Prepare webhook data (Naukri-specific format with city codes)
-    const webhookData = {
+    // Prepare preprocessed data (Naukri-specific format with city codes)
+    const preprocessedData = {
       cities: cityCodes,
       experience: experience,
       freshness: freshness,
       keyword: keywords,
       maxJobs: parseInt(limit),
-      email: user_email
-    };
-
-    // Send to n8n webhook
-    const webhookUrl = 'https://etgstkql.rcld.app/webhook/017c1918-c18e-40cf-a49d-00aa83dfa303';
-
-    console.log('Sending to Naukri webhook:', webhookUrl);
-    const webhookResponse = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(webhookData)
-    });
-
-    if (!webhookResponse.ok) {
-      console.error('Webhook failed:', webhookResponse.status);
-      return res.status(500).json({
-        error: 'Failed to initiate job scraping',
-        details: `Webhook returned status ${webhookResponse.status}`
-      });
-    }
-
-    const responseText = await webhookResponse.text();
-    console.log('Webhook response:', responseText);
-
-    let webhookResult = {};
-    try {
-      webhookResult = responseText ? JSON.parse(responseText) : {};
-    } catch (e) {
-      console.error('Failed to parse webhook response:', e);
-      webhookResult = { message: responseText };
-    }
-
-    console.log('Naukri scraping initiated successfully');
-
-    return res.status(200).json({
-      success: true,
-      message: 'Job scraping initiated successfully',
+      email: user_email,
       platform: 'naukri',
       citiesConverted: {
         input: cities,
         codes: cityCodes
-      },
-      data: webhookResult
+      }
+    };
+
+    console.log('Naukri data preprocessed successfully');
+
+    // Return preprocessed data without calling webhook
+    return res.status(200).json({
+      success: true,
+      message: 'Data preprocessed successfully',
+      platform: 'naukri',
+      data: preprocessedData
     });
 
   } catch (error) {

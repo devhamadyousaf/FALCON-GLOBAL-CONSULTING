@@ -26,8 +26,8 @@ export default async function handler(req, res) {
       });
     }
 
-    // Prepare webhook data for Glassdoor scraper
-    const webhookData = {
+    // Prepare preprocessed data for Glassdoor scraper
+    const preprocessedData = {
       baseUrl,
       includeNoSalaryJob,
       keyword: keywords,
@@ -38,47 +38,18 @@ export default async function handler(req, res) {
         apifyProxyGroups: ['RESIDENTIAL']
       },
       remoteWorkType: remote === 'remote' || remoteWorkType,
-      email: user_email
+      email: user_email,
+      platform: 'glassdoor'
     };
 
-    // Send to n8n webhook
-    const webhookUrl = 'https://etgstkql.rcld.app/webhook/04184337-755f-4fe6-9e61-2e9a513f58aa';
+    console.log('Glassdoor data preprocessed successfully');
 
-    console.log('Sending to Glassdoor webhook:', webhookUrl);
-    const webhookResponse = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(webhookData)
-    });
-
-    if (!webhookResponse.ok) {
-      console.error('Webhook failed:', webhookResponse.status);
-      return res.status(500).json({
-        error: 'Failed to initiate job scraping',
-        details: `Webhook returned status ${webhookResponse.status}`
-      });
-    }
-
-    const responseText = await webhookResponse.text();
-    console.log('Webhook response:', responseText);
-
-    let webhookResult = {};
-    try {
-      webhookResult = responseText ? JSON.parse(responseText) : {};
-    } catch (e) {
-      console.error('Failed to parse webhook response:', e);
-      webhookResult = { message: responseText };
-    }
-
-    console.log('Glassdoor scraping initiated successfully');
-
+    // Return preprocessed data without calling webhook
     return res.status(200).json({
       success: true,
-      message: 'Job scraping initiated successfully',
+      message: 'Data preprocessed successfully',
       platform: 'glassdoor',
-      data: webhookResult
+      data: preprocessedData
     });
 
   } catch (error) {
