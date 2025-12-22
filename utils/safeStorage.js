@@ -162,15 +162,36 @@ class SafeStorage {
     console.warn('🔧 Attempting storage recovery...');
 
     try {
+      // Check if we've already attempted recovery recently to prevent reload loops
+      const recoveryKey = '__storage_recovery_attempt__';
+      const lastRecovery = sessionStorage.getItem(recoveryKey);
+      const now = Date.now();
+
+      // If recovery was attempted in the last 30 seconds, don't reload
+      if (lastRecovery && (now - parseInt(lastRecovery)) < 30000) {
+        console.warn('⚠️ Recent recovery attempt detected - skipping reload to prevent loop');
+        return;
+      }
+
+      // Mark recovery attempt
+      try {
+        sessionStorage.setItem(recoveryKey, now.toString());
+      } catch (e) {
+        // If we can't even set this, just continue
+      }
+
       // Try to clear corrupted storage
       storage.clear();
       console.log('✅ Storage recovered successfully');
 
-      // Reload the page to reinitialize with clean storage
-      if (typeof window !== 'undefined') {
+      // Only reload if we're not already in a recovery loop
+      if (typeof window !== 'undefined' && !window.location.hash.includes('recovery')) {
         console.log('🔄 Reloading page to reinitialize...');
+        // Add a hash to track recovery reload
+        const currentUrl = new URL(window.location.href);
+        currentUrl.hash = 'recovery';
         setTimeout(() => {
-          window.location.reload();
+          window.location.href = currentUrl.href;
         }, 1000);
       }
     } catch (error) {

@@ -13,6 +13,14 @@ export function AuthProvider({ children }) {
   const { showToast } = useToast ? useToast() : { showToast: () => {} };
 
   useEffect(() => {
+    // Failsafe: If auth check takes too long (10 seconds), stop loading to prevent white screen
+    const failsafeTimer = setTimeout(() => {
+      if (loading) {
+        console.warn('⚠️ Auth check timeout - stopping loading state to prevent white screen');
+        setLoading(false);
+      }
+    }, 10000);
+
     // Get initial session
     checkUserSession();
 
@@ -30,6 +38,7 @@ export function AuthProvider({ children }) {
     });
 
     return () => {
+      clearTimeout(failsafeTimer);
       subscription?.unsubscribe();
     };
   }, []);
@@ -424,7 +433,20 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {loading ? (
+        // Show minimal loading UI instead of blank screen
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+          <div className="text-center">
+            <div className="relative w-16 h-16 mx-auto mb-4">
+              <div className="absolute inset-0 border-4 border-gray-200 rounded-full"></div>
+              <div className="absolute inset-0 border-4 border-red-600 rounded-full border-t-transparent animate-spin"></div>
+            </div>
+            <p className="text-gray-600 text-sm">Loading...</p>
+          </div>
+        </div>
+      ) : (
+        children
+      )}
     </AuthContext.Provider>
   );
 }

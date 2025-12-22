@@ -42,6 +42,7 @@ export default function ServicePage() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showJobRequestModal, setShowJobRequestModal] = useState(false);
+  const [showGmailPromptModal, setShowGmailPromptModal] = useState(false);
   const [jobRequestData, setJobRequestData] = useState({
     keywords: '',
     limit: 10,
@@ -579,6 +580,14 @@ export default function ServicePage() {
 
   const markAllAsRead = () => {
     setNotifications(notifications.map(notif => ({ ...notif, read: true })));
+  };
+
+  const handleNewCampaignClick = () => {
+    if (!gmailConnected) {
+      setShowGmailPromptModal(true);
+    } else {
+      setShowJobRequestModal(true);
+    }
   };
 
   const handleJobRequest = async () => {
@@ -1176,7 +1185,7 @@ export default function ServicePage() {
               <button
                 onClick={() => {
                   if (serviceId === 'jobs') {
-                    setShowJobRequestModal(true);
+                    handleNewCampaignClick();
                   }
                 }}
                 className="px-6 py-3 rounded-xl font-semibold text-white flex items-center space-x-2 shadow-lg transition-all duration-200"
@@ -1269,7 +1278,7 @@ export default function ServicePage() {
                   <h3 className="text-2xl font-bold text-gray-900 mb-2">No Campaigns Yet</h3>
                   <p className="text-gray-600 mb-6">Create your first campaign to get started</p>
                   <button
-                    onClick={() => setShowJobRequestModal(true)}
+                    onClick={handleNewCampaignClick}
                     className="px-8 py-4 rounded-xl font-semibold text-white shadow-lg transition-all duration-200"
                     style={{ backgroundColor: 'rgba(187, 40, 44, 1)' }}
                   >
@@ -1493,7 +1502,7 @@ export default function ServicePage() {
                       </div>
                     )}
                     <button
-                      onClick={() => setShowJobRequestModal(true)}
+                      onClick={handleNewCampaignClick}
                       disabled={loadingCampaign || activeCampaign}
                       className="px-8 py-4 rounded-xl font-semibold text-white shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                       style={{ backgroundColor: 'rgba(187, 40, 44, 1)' }}
@@ -1538,6 +1547,44 @@ export default function ServicePage() {
                 </div>
 
                 <div className="space-y-4">
+                  {/* Gmail Connection - FIRST PRIORITY */}
+                  <div className="bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-200 rounded-xl p-5">
+                    <label className="block text-sm font-semibold text-gray-800 mb-3 flex items-center">
+                      <Mail className="w-5 h-5 mr-2 text-red-600" />
+                      Gmail Account Connection
+                      <span className="ml-2 text-red-500">*</span>
+                    </label>
+                    {gmailConnected ? (
+                      <div className="flex items-center justify-between p-4 bg-white border-2 border-green-400 rounded-xl shadow-sm">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-full flex items-center justify-center shadow-md">
+                            <Mail className="w-6 h-6 text-white" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-green-900">✓ Connected</p>
+                            <p className="text-sm text-green-700 font-medium">{gmailAddress}</p>
+                          </div>
+                        </div>
+                        <CheckCircle className="w-6 h-6 text-green-500" />
+                      </div>
+                    ) : (
+                      <div>
+                        <button
+                          onClick={handleConnectGmail}
+                          className="w-full flex items-center justify-center space-x-3 px-6 py-4 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl font-bold hover:from-red-700 hover:to-red-800 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
+                        >
+                          <Mail className="w-6 h-6" />
+                          <span>Connect Gmail Account</span>
+                        </button>
+                        <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                          <p className="text-xs text-yellow-800 font-medium">
+                            ⚠️ Gmail connection required to send job applications automatically
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {/* Keywords */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1705,38 +1752,6 @@ export default function ServicePage() {
                     )}
                   </div>
 
-                  {/* Gmail Connection */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Gmail Account
-                    </label>
-                    {gmailConnected ? (
-                      <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-xl">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
-                            <Mail className="w-5 h-5 text-white" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-semibold text-green-900">Connected</p>
-                            <p className="text-xs text-green-700">{gmailAddress}</p>
-                          </div>
-                        </div>
-                        <CheckCircle className="w-5 h-5 text-green-500" />
-                      </div>
-                    ) : (
-                      <button
-                        onClick={handleConnectGmail}
-                        className="w-full flex items-center justify-center space-x-3 px-6 py-4 bg-white border-2 border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all duration-200"
-                      >
-                        <Mail className="w-5 h-5" />
-                        <span>Connect Gmail Account</span>
-                      </button>
-                    )}
-                    <p className="text-xs text-gray-500 mt-2">
-                      Connect your Gmail to automatically send job applications
-                    </p>
-                  </div>
-
                   {/* Info Box */}
                   <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
                     <p className="text-sm text-blue-900">
@@ -1774,6 +1789,66 @@ export default function ServicePage() {
                       </span>
                     ) : 'Submit Request'}
                   </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Gmail Connection Prompt Modal */}
+        {showGmailPromptModal && serviceId === 'jobs' && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div
+              className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[100]"
+              onClick={() => setShowGmailPromptModal(false)}
+            />
+            <div
+              className="relative w-full max-w-md rounded-2xl shadow-2xl border backdrop-blur-md z-[101]"
+              style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                borderColor: 'rgba(255, 255, 255, 0.3)'
+              }}
+            >
+              <div className="p-8">
+                <div className="flex flex-col items-center text-center">
+                  {/* Gmail Icon */}
+                  <div className="w-20 h-20 bg-gradient-to-r from-red-500 to-red-600 rounded-full flex items-center justify-center mb-6">
+                    <Mail className="w-10 h-10 text-white" />
+                  </div>
+
+                  {/* Title */}
+                  <h3 className="text-2xl font-bold mb-3" style={{ color: 'rgba(0, 50, 83, 1)' }}>
+                    Connect Gmail First
+                  </h3>
+
+                  {/* Description */}
+                  <p className="text-gray-600 mb-8">
+                    To create and manage campaigns, you need to connect your Gmail account first. This allows us to send applications on your behalf.
+                  </p>
+
+                  {/* Buttons */}
+                  <div className="flex flex-col w-full space-y-3">
+                    <button
+                      onClick={() => {
+                        setShowGmailPromptModal(false);
+                        handleConnectGmail();
+                      }}
+                      className="w-full px-6 py-4 rounded-xl font-semibold text-white transition-all duration-200 shadow-lg"
+                      style={{ backgroundColor: 'rgba(187, 40, 44, 1)' }}
+                    >
+                      Connect Gmail
+                    </button>
+                    <button
+                      onClick={() => setShowGmailPromptModal(false)}
+                      className="w-full px-6 py-4 rounded-xl font-semibold transition-all duration-200 border-2"
+                      style={{
+                        color: 'rgba(0, 50, 83, 1)',
+                        borderColor: 'rgba(0, 50, 83, 0.2)'
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
