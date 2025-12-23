@@ -82,26 +82,49 @@ export default function AdminDashboard() {
       router.push('/login');
       return;
     }
-    
+
     if (user.role !== 'admin') {
       console.log('❌ Not admin user, redirecting to customer dashboard');
       router.push('/dashboard/customer');
       return;
     }
-    
+
     // Ensure supabase client is ready
     if (!supabase) {
       console.warn('⚠️ Supabase client not ready yet');
       return;
     }
-    
-    // Only load data once when auth is ready and user is admin
-    if (!dataInitialized) {
-      console.log('✅ Auth ready, loading admin data for first time...');
-      loadAdminData();
-      setDataInitialized(true);
-    }
-  }, [isAuthenticated, user, router, authLoading, supabase, dataInitialized]);
+
+    // Load data when auth is ready and user is admin
+    console.log('✅ Auth ready, loading admin data...');
+    loadAdminData();
+  }, [isAuthenticated, user, router, authLoading, supabase]);
+
+  // Refresh data when returning to the page (when it becomes visible)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && isAuthenticated && user?.role === 'admin') {
+        console.log('🔄 Page visible again, refreshing data...');
+        loadAdminData();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [isAuthenticated, user]);
+
+  // Reload data when navigating back to this page
+  useEffect(() => {
+    const handleRouteChange = (url) => {
+      if (url === '/dashboard/admin' && isAuthenticated && user?.role === 'admin') {
+        console.log('🔄 Navigated back to admin dashboard, refreshing data...');
+        setTimeout(() => loadAdminData(), 100); // Small delay to ensure page is ready
+      }
+    };
+
+    router.events?.on('routeChangeComplete', handleRouteChange);
+    return () => router.events?.off('routeChangeComplete', handleRouteChange);
+  }, [isAuthenticated, user, router]);
 
   const loadAdminData = async () => {
     console.log('📊 Starting admin data load...');
@@ -1235,12 +1258,18 @@ export default function AdminDashboard() {
           }}
         >
           <h3 className="text-xl font-bold text-gray-900 mb-6">Quick Actions</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             <button
               onClick={() => setActiveTab('users')}
               className="flex items-center justify-center space-x-2 px-6 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-300 shadow-lg hover:shadow-xl">
               <Users className="w-5 h-5" />
               <span>Manage Users</span>
+            </button>
+            <button
+              onClick={() => router.push('/dashboard/admin/bulk-pricing')}
+              className="flex items-center justify-center space-x-2 px-6 py-4 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white rounded-xl hover:from-emerald-700 hover:to-emerald-800 transition-all duration-300 shadow-lg hover:shadow-xl">
+              <DollarSign className="w-5 h-5" />
+              <span>Bulk Pricing</span>
             </button>
             <button
               onClick={handleViewReports}

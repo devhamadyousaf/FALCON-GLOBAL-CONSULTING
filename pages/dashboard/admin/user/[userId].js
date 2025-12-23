@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../../../context/AuthContext';
+import { getCustomPricing, saveCustomPricing, deleteCustomPricing, AVAILABLE_PLANS } from '../../../../lib/custom-pricing';
 import {
   ArrowLeft,
   User,
@@ -19,7 +20,10 @@ import {
   DollarSign,
   Activity,
   Eye,
-  XCircle
+  XCircle,
+  Plus,
+  Save,
+  X as XIcon
 } from 'lucide-react';
 
 export default function UserDetailPage() {
@@ -36,15 +40,44 @@ export default function UserDetailPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Custom Pricing states - OLD schema: one row with all plan prices
+  const [customPricing, setCustomPricing] = useState(null);
+  const [loadingPricing, setLoadingPricing] = useState(false);
+  const [showPricingModal, setShowPricingModal] = useState(false);
+  const [pricingForm, setPricingForm] = useState({
+    silverPrice: '',
+    goldPrice: '',
+    diamondPrice: '',
+    diamondPlusPrice: '',
+    currency: 'USD',
+    notes: ''
+  });
+  const [savingPricing, setSavingPricing] = useState(false);
+
   useEffect(() => {
     if (!isAuthenticated || !currentUser) {
       router.push('/login');
-    } else if (currentUser.role !== 'admin') {
+      return;
+    }
+
+    if (currentUser.role !== 'admin') {
       router.push('/dashboard/customer');
-    } else if (userId) {
+      return;
+    }
+
+    if (userId) {
+      console.log('🔄 Loading user data for userId:', userId);
       loadUserData();
     }
-  }, [isAuthenticated, currentUser, router, userId]);
+  }, [isAuthenticated, currentUser, userId]);
+
+  // Separate effect to reload data when tab changes
+  useEffect(() => {
+    if (activeTab === 'pricing' && userId && isAuthenticated) {
+      console.log('🔄 Pricing tab activated, refreshing pricing data...');
+      fetchCustomPricing();
+    }
+  }, [activeTab, userId, isAuthenticated]);
 
   const loadUserData = async () => {
     setLoading(true);
@@ -54,7 +87,8 @@ export default function UserDetailPage() {
         fetchUserApplications(),
         fetchUserDocuments(),
         fetchUserPayments(),
-        fetchOnboardingData()
+        fetchOnboardingData(),
+        fetchCustomPricing()
       ]);
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -145,6 +179,117 @@ export default function UserDetailPage() {
     } catch (error) {
       console.error('Error fetching onboarding data:', error);
     }
+  };
+
+  const fetchCustomPricing = async () => {
+    if (!userId) return;
+
+    setLoadingPricing(true);
+    try {
+      const { data, error } = await supabase
+        .from('custom_pricing')
+        .select('*, created_by_profile:profiles!custom_pricing_created_by_fkey(full_name, email)')
+        .eq('user_id', userId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching custom pricing:', error);
+        setCustomPricing(null);
+      } else {
+        setCustomPricing(data || null);
+        console.log('✅ Custom pricing loaded:', data);
+      }
+    } catch (error) {
+      console.error('Error fetching custom pricing:', error);
+      setCustomPricing(null);
+    } finally {
+      setLoadingPricing(false);
+    }
+  };
+
+  const handleSaveCustomPricing = async () => {
+    setSavingPricing(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      if (!token) {
+        throw new Error('No authentication token');
+      }
+
+      const result = await saveCustomPricing({
+        userId,
+        silverPrice: pricingForm.silverPrice ? parseFloat(pricingForm.silverPrice) : undefined,
+        goldPrice: pricingForm.goldPrice ? parseFloat(pricingForm.goldPrice) : undefined,
+        diamondPrice: pricingForm.diamondPrice ? parseFloat(pricingForm.diamondPrice) : undefined,
+        diamondPlusPrice: pricingForm.diamondPlusPrice ? parseFloat(pricingForm.diamondPlusPrice) : undefined,
+        currency: pricingForm.currency,
+        notes: pricingForm.notes,
+        token
+      });
+
+      if (result.success) {
+        alert(customPricing ? 'Custom pricing updated successfully!' : 'Custom pricing created successfully!');
+        setShowPricingModal(false);
+        setPricingForm({
+          silverPrice: '',
+          goldPrice: '',
+          diamondPrice: '',
+          diamondPlusPrice: '',
+          currency: 'USD',
+          notes: ''
+        });
+        await fetchCustomPricing();
+      } else {
+        throw new Error(result.error || 'Failed to save pricing');
+      }
+    } catch (error) {
+      console.error('Error saving custom pricing:', error);
+      alert('Error saving custom pricing: ' + error.message);
+    } finally {
+      setSavingPricing(false);
+    }
+  };
+
+  const handleDeletePricing = async () => {
+    if (!confirm(`Are you sure you want to delete ALL custom pricing for this user?\n\nUser will revert to default pricing for all plans.`)) {
+      return;
+    }
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      if (!token) {
+        throw new Error('No authentication token');
+      }
+
+      const result = await deleteCustomPricing(userId, token);
+
+      if (result.success) {
+        alert('Custom pricing deleted successfully!');
+        await fetchCustomPricing();
+      } else {
+        throw new Error(result.error || 'Failed to delete pricing');
+      }
+    } catch (error) {
+      console.error('Error deleting custom pricing:', error);
+      alert('Error deleting custom pricing: ' + error.message);
+    }
+  };
+
+  const handleEditPricing = () => {
+    if (customPricing) {
+      setPricingForm({
+        silverPrice: customPricing.silver_price?.toString() || '',
+        goldPrice: customPricing.gold_price?.toString() || '',
+        diamondPrice: customPricing.diamond_price?.toString() || '',
+        diamondPlusPrice: customPricing.diamond_plus_price?.toString() || '',
+        currency: customPricing.currency || 'USD',
+        notes: customPricing.notes || ''
+      });
+    }
+    setShowPricingModal(true);
   };
 
   const getTimeAgo = (dateString) => {
@@ -472,6 +617,7 @@ export default function UserDetailPage() {
         <div className="flex space-x-2 mb-6 overflow-x-auto">
           {[
             { id: 'overview', name: 'Overview', icon: User },
+            { id: 'pricing', name: 'Custom Pricing', icon: DollarSign },
             { id: 'onboarding', name: 'Onboarding Data', icon: Activity },
             { id: 'applications', name: 'Applications', icon: FileText },
             { id: 'documents', name: 'Documents', icon: FileText },
@@ -624,6 +770,141 @@ export default function UserDetailPage() {
                       <p className="text-gray-900 font-medium">${userData.budget_range}</p>
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Custom Pricing Tab */}
+        {activeTab === 'pricing' && (
+          <div className="rounded-2xl p-6 shadow-lg backdrop-blur-md bg-white/80">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-gray-900 flex items-center space-x-2">
+                <DollarSign className="w-6 h-6 text-green-600" />
+                <span>Custom Pricing</span>
+              </h3>
+              <button
+                onClick={handleEditPricing}
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              >
+                {customPricing ? <Edit className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                <span>{customPricing ? 'Edit Pricing' : 'Set Custom Pricing'}</span>
+              </button>
+            </div>
+
+            {loadingPricing ? (
+              <div className="text-center py-12">
+                <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-gray-500">Loading custom pricing...</p>
+              </div>
+            ) : !customPricing ? (
+              <div className="text-center py-12 text-gray-500">
+                <DollarSign className="w-16 h-16 mx-auto mb-3 opacity-50" />
+                <p className="text-lg font-medium">No Custom Pricing Set</p>
+                <p className="text-sm mt-1">This user is using the default pricing for all plans.</p>
+
+                {/* Default Pricing Reference */}
+                <div className="mt-8 p-4 bg-gray-100 rounded-xl border border-gray-300 max-w-2xl mx-auto">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3">Default Pricing Reference</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {AVAILABLE_PLANS.map(plan => (
+                      <div key={plan.name} className="p-3 bg-white rounded-lg">
+                        <p className="text-xs text-gray-500">{plan.label}</p>
+                        <p className="text-lg font-bold text-gray-700">${plan.defaultPrice.toLocaleString()}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="p-5 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl border-2 border-green-200 shadow-sm">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center space-x-3">
+                      <span className="px-3 py-1 bg-green-600 text-white rounded-full text-xs font-bold">
+                        CUSTOM PRICING ACTIVE
+                      </span>
+                      <span className="text-sm text-gray-600">
+                        Currency: <span className="font-bold">{customPricing.currency}</span>
+                      </span>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={handleEditPricing}
+                        className="p-2 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-600 transition-colors"
+                        title="Edit pricing"
+                      >
+                        <Edit className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={handleDeletePricing}
+                        className="p-2 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 transition-colors"
+                        title="Delete all custom pricing"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Grid of all 4 plan prices */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 overflow-x-auto">
+                    <div className="p-3 sm:p-4 bg-white rounded-lg shadow-sm border-2 border-gray-200">
+                      <p className="text-xs sm:text-sm text-gray-500 mb-1">Silver Plan</p>
+                      <p className="text-xl sm:text-2xl font-bold text-gray-900">
+                        ${Number(customPricing.silver_price).toLocaleString()}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">(Default: $299)</p>
+                    </div>
+                    <div className="p-3 sm:p-4 bg-white rounded-lg shadow-sm border-2 border-gray-200">
+                      <p className="text-xs sm:text-sm text-gray-500 mb-1">Gold Plan</p>
+                      <p className="text-xl sm:text-2xl font-bold text-gray-900">
+                        ${Number(customPricing.gold_price).toLocaleString()}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">(Default: $699)</p>
+                    </div>
+                    <div className="p-3 sm:p-4 bg-white rounded-lg shadow-sm border-2 border-gray-200">
+                      <p className="text-xs sm:text-sm text-gray-500 mb-1">Diamond Plan</p>
+                      <p className="text-xl sm:text-2xl font-bold text-gray-900">
+                        ${Number(customPricing.diamond_price).toLocaleString()}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">(Default: $1,600)</p>
+                    </div>
+                    <div className="p-3 sm:p-4 bg-white rounded-lg shadow-sm border-2 border-gray-200">
+                      <p className="text-xs sm:text-sm text-gray-500 mb-1">Diamond Plus</p>
+                      <p className="text-xl sm:text-2xl font-bold text-gray-900">
+                        ${Number(customPricing.diamond_plus_price).toLocaleString()}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">(Default: $1)</p>
+                    </div>
+                  </div>
+
+                  {customPricing.notes && (
+                    <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200 mb-3">
+                      <p className="text-xs font-semibold text-yellow-800 mb-1">Notes:</p>
+                      <p className="text-sm text-yellow-900">{customPricing.notes}</p>
+                    </div>
+                  )}
+
+                  <p className="text-xs text-gray-500">
+                    Last updated: {formatDate(customPricing.updated_at)}
+                    {customPricing.created_by_profile && (
+                      <> by {customPricing.created_by_profile.full_name || customPricing.created_by_profile.email}</>
+                    )}
+                  </p>
+                </div>
+
+                {/* Default Pricing Reference */}
+                <div className="mt-6 p-4 bg-gray-100 rounded-xl border border-gray-300">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3">Default Pricing Reference</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {AVAILABLE_PLANS.map(plan => (
+                      <div key={plan.name} className="p-3 bg-white rounded-lg">
+                        <p className="text-xs text-gray-500">{plan.label}</p>
+                        <p className="text-lg font-bold text-gray-700">${plan.defaultPrice.toLocaleString()}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -1129,6 +1410,204 @@ export default function UserDetailPage() {
         )}
       </div>
 
+      {/* Custom Pricing Modal */}
+      {showPricingModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100]"
+            onClick={() => !savingPricing && setShowPricingModal(false)}
+          />
+          <div
+            className="relative w-full max-w-lg my-8 rounded-2xl shadow-2xl border backdrop-blur-md z-[101] max-h-[90vh] flex flex-col"
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.95)',
+              borderColor: 'rgba(255, 255, 255, 0.3)'
+            }}
+          >
+            {/* Header - Fixed */}
+            <div className="p-4 sm:p-6 border-b border-gray-200 flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center space-x-2">
+                  <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
+                  <span className="text-lg sm:text-2xl">{customPricing ? 'Edit Custom Pricing' : 'Set Custom Pricing'}</span>
+                </h3>
+                <button
+                  onClick={() => !savingPricing && setShowPricingModal(false)}
+                  disabled={savingPricing}
+                  className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50"
+                >
+                  <XIcon className="w-5 h-5 sm:w-6 sm:h-6 text-gray-600" />
+                </button>
+              </div>
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+              <div className="space-y-4">
+                <p className="text-sm text-gray-600 mb-4">
+                  Set custom pricing for all plans. Leave blank to use default pricing for that plan.
+                </p>
+
+                {/* Silver Price */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Silver Plan Price <span className="text-gray-400">(Default: $299)</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={pricingForm.silverPrice}
+                      onChange={(e) => setPricingForm({ ...pricingForm, silverPrice: e.target.value })}
+                      disabled={savingPricing}
+                      placeholder="299"
+                      className="w-full pl-8 pr-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none disabled:opacity-50"
+                      style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Gold Price */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Gold Plan Price <span className="text-gray-400">(Default: $699)</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={pricingForm.goldPrice}
+                      onChange={(e) => setPricingForm({ ...pricingForm, goldPrice: e.target.value })}
+                      disabled={savingPricing}
+                      placeholder="699"
+                      className="w-full pl-8 pr-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none disabled:opacity-50"
+                      style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Diamond Price */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Diamond Plan Price <span className="text-gray-400">(Default: $1,600)</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={pricingForm.diamondPrice}
+                      onChange={(e) => setPricingForm({ ...pricingForm, diamondPrice: e.target.value })}
+                      disabled={savingPricing}
+                      placeholder="1600"
+                      className="w-full pl-8 pr-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none disabled:opacity-50"
+                      style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Diamond Plus Price */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Diamond Plus Price <span className="text-gray-400">(Default: $1)</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={pricingForm.diamondPlusPrice}
+                      onChange={(e) => setPricingForm({ ...pricingForm, diamondPlusPrice: e.target.value })}
+                      disabled={savingPricing}
+                      placeholder="1"
+                      className="w-full pl-8 pr-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none disabled:opacity-50"
+                      style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Currency */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Currency
+                  </label>
+                  <select
+                    value={pricingForm.currency}
+                    onChange={(e) => setPricingForm({ ...pricingForm, currency: e.target.value })}
+                    disabled={savingPricing}
+                    className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none disabled:opacity-50"
+                    style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
+                  >
+                    <option value="USD">USD ($)</option>
+                    <option value="EUR">EUR (€)</option>
+                    <option value="GBP">GBP (£)</option>
+                    <option value="CRC">CRC (₡)</option>
+                  </select>
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Notes (Optional)
+                  </label>
+                  <textarea
+                    value={pricingForm.notes}
+                    onChange={(e) => setPricingForm({ ...pricingForm, notes: e.target.value })}
+                    disabled={savingPricing}
+                    placeholder="Add any notes about this custom pricing..."
+                    rows={3}
+                    className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none disabled:opacity-50 resize-none"
+                    style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Footer - Fixed */}
+            <div className="p-4 sm:p-6 border-t border-gray-200 bg-gray-50 rounded-b-2xl flex-shrink-0">
+              <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3">
+                <button
+                  onClick={() => setShowPricingModal(false)}
+                  disabled={savingPricing}
+                  className="w-full sm:flex-1 px-4 sm:px-6 py-3 rounded-xl font-semibold border transition-all duration-200 disabled:opacity-50"
+                  style={{
+                    borderColor: 'rgba(0, 50, 83, 0.3)',
+                    color: 'rgba(0, 50, 83, 1)',
+                    backgroundColor: 'white'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveCustomPricing}
+                  disabled={savingPricing}
+                  className="w-full sm:flex-1 px-4 sm:px-6 py-3 rounded-xl font-semibold text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                  style={{ backgroundColor: 'rgba(0, 50, 83, 1)' }}
+                >
+                  {savingPricing ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-5 h-5" />
+                      <span>Save Pricing</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -1149,15 +1628,15 @@ export default function UserDetailPage() {
                   <AlertCircle className="w-8 h-8 text-red-600" />
                 </div>
               </div>
-              
+
               <h3 className="text-2xl font-bold text-gray-900 text-center mb-3">
                 Delete User?
               </h3>
-              
+
               <p className="text-gray-600 text-center mb-2">
                 Are you sure you want to delete <strong>{userData?.full_name || userData?.email}</strong>?
               </p>
-              
+
               <p className="text-sm text-red-600 text-center mb-6">
                 This action cannot be undone. All user data including applications, documents, and payments will be permanently deleted.
               </p>
@@ -1167,8 +1646,8 @@ export default function UserDetailPage() {
                   onClick={() => setShowDeleteModal(false)}
                   disabled={deleting}
                   className="flex-1 px-6 py-3 rounded-xl font-semibold border transition-all duration-200 disabled:opacity-50"
-                  style={{ 
-                    borderColor: 'rgba(0, 50, 83, 0.3)', 
+                  style={{
+                    borderColor: 'rgba(0, 50, 83, 0.3)',
                     color: 'rgba(0, 50, 83, 1)',
                     backgroundColor: 'white'
                   }}

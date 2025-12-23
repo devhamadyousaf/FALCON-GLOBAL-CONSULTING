@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Head from 'next/head';
 import { Menu, X, ArrowRight, Mail, Phone, MapPin, Plus, Minus } from 'lucide-react';
 import { useRouter } from 'next/router';
 import * as gtag from '../lib/gtag';
 
-export default function LandingPage() {
+const SimpleLanding = () => {
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -41,33 +40,24 @@ export default function LandingPage() {
   const services = [
     {
       title: 'Automated Job Search',
-      description: 'Applying for suitable jobs at your desired location is a very time consuming process. Our innovative concept enables our clients to automate their job search. We create individually suitable solutions and help you achieve your career goals.',
-      image: 'https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=600&h=400&fit=crop'
+      description: 'Applying for suitable jobs at your desired location is a very time consuming process. Our innovative concept enables our clients to automate their job search. We create individually suitable solutions and help you achieve your career goals.'
     },
     {
       title: 'Career Consulting',
-      description: 'Assist clients in structuring and maximizing their success in their career.',
-      image: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=600&h=400&fit=crop'
+      description: 'Assist clients in structuring and maximizing their success in their career.'
     },
     {
       title: 'Relocation Assistance',
-      description: 'Provide consultation and guidance during your relocation process.',
-      image: 'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=600&h=400&fit=crop'
+      description: 'Provide consultation and guidance during your relocation process.'
     },
     {
       title: 'Visa Support',
-      description: 'Assist clients with their visa applications.',
-      image: 'https://images.unsplash.com/photo-1521791136064-7986c2920216?w=600&h=400&fit=crop'
+      description: 'Assist clients with their visa applications.'
     }
   ];
 
   return (
-    <>
-      <Head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-        <title>Falcon Global Consulting - Career Solutions</title>
-      </Head>
-      <div className="font-inter" style={{ width: '100%', maxWidth: '100vw', overflowX: 'hidden' }}>
+    <div className="font-inter">
       {/* Header */}
       <header className="fixed w-full z-50 pt-4">
         <div className="w-full px-6">
@@ -164,11 +154,11 @@ export default function LandingPage() {
       >
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-20">
           <div className="text-center">
-            <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold text-white mb-4 md:mb-6 leading-tight">
-              Achieve Your Career Goals<br />with Expert Guidance
+            <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-8 md:mb-10 leading-tight">
+              Achieve Your Career Goals with Expert Guidance
             </h1>
 
-            <p className="text-sm md:text-base text-gray-200 max-w-2xl mx-auto leading-relaxed mb-6 md:mb-8">
+            <p className="text-base md:text-lg text-gray-200 max-w-2xl mx-auto leading-relaxed mb-8 md:mb-12">
               Automated Job Search. Career Consulting. Visa support. Relocation assistance.
             </p>
 
@@ -182,7 +172,7 @@ export default function LandingPage() {
                   });
                   router.push('/apply');
                 }}
-                className="group text-white px-4 md:px-6 py-2 md:py-3 rounded-full font-semibold text-sm md:text-base transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex items-center space-x-2"
+                className="group text-white px-6 md:px-8 py-3 md:py-4 rounded-full font-semibold text-base md:text-lg transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex items-center space-x-2"
                 style={{
                   background: 'linear-gradient(to right, rgba(187, 40, 44, 1), rgba(187, 40, 44, 0.8))'
                 }}
@@ -196,17 +186,17 @@ export default function LandingPage() {
       </section>
 
       {/* About Section */}
-      <section className="py-8 md:py-12 lg:py-16 desert-sand-bg-subtle">
+      <section className="py-12 md:py-16 lg:py-20 desert-sand-bg-subtle">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-6 md:mb-8">
-            <h2 className="text-xl md:text-2xl lg:text-3xl font-bold mb-3" style={{ color: 'rgba(0, 50, 83, 1)' }}>
+          <div className="text-center mb-8 md:mb-12">
+            <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-4" style={{ color: 'rgba(0, 50, 83, 1)' }}>
               ABOUT US
             </h2>
-            <div className="w-20 h-1 mx-auto rounded-full mb-4" style={{ backgroundColor: 'rgba(187, 40, 44, 1)' }} />
+            <div className="w-24 h-1.5 mx-auto rounded-full mb-6" style={{ backgroundColor: 'rgba(187, 40, 44, 1)' }} />
           </div>
 
           <div className="max-w-4xl mx-auto">
-            <p className="text-sm md:text-base text-gray-700 leading-relaxed mb-6 text-center">
+            <p className="text-base md:text-lg text-gray-700 leading-relaxed mb-8 text-center">
               At Falcon Global Consulting Corp., we are more than just consultants; we are your partners on the path to a successful career. 
               We help you with all our passion finding your dream job. We have built a reputation for excellence in the industry. 
               Our team of experienced experts brings a diverse range of skills and knowledge to the table, allowing us to tailor strategies 
@@ -223,7 +213,7 @@ export default function LandingPage() {
                   });
                   router.push('/apply');
                 }}
-                className="text-white px-4 md:px-6 py-2 md:py-3 rounded-full font-semibold text-sm md:text-base transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 inline-flex items-center space-x-2"
+                className="text-white px-6 md:px-8 py-3 rounded-full font-semibold text-base transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 inline-flex items-center space-x-2"
                 style={{
                   background: 'linear-gradient(to right, rgba(187, 40, 44, 1), rgba(187, 40, 44, 0.8))'
                 }}
@@ -237,83 +227,31 @@ export default function LandingPage() {
       </section>
 
       {/* Services Section */}
-      <section 
-        id="services" 
-        className="py-8 md:py-12 lg:py-16 relative"
-        style={{
-          backgroundImage: `
-            linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.9)),
-            url('https://images.unsplash.com/photo-1473580044384-7ba9967e16a0?w=1920&h=1080&fit=crop')
-          `,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
-          backgroundAttachment: 'fixed'
-        }}
-      >
+      <section id="services" className="py-12 md:py-16 lg:py-20 bg-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-6 md:mb-8">
-            <h2 className="text-xl md:text-2xl lg:text-3xl font-bold mb-3" style={{ color: 'rgba(0, 50, 83, 1)' }}>
+          <div className="text-center mb-8 md:mb-12">
+            <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-4" style={{ color: 'rgba(0, 50, 83, 1)' }}>
               OUR SERVICES
             </h2>
-            <div className="w-20 h-1 mx-auto rounded-full mb-4" style={{ backgroundColor: 'rgba(187, 40, 44, 1)' }} />
+            <div className="w-24 h-1.5 mx-auto rounded-full mb-6" style={{ backgroundColor: 'rgba(187, 40, 44, 1)' }} />
           </div>
 
-          <div className="space-y-6">
+          <div className="grid md:grid-cols-2 gap-8">
             {services.map((service, index) => (
               <div
                 key={index}
-                className="flex flex-col md:flex-row gap-4 items-center p-4 md:p-5 rounded-2xl transition-all duration-300 hover:shadow-xl"
+                className="p-6 rounded-2xl transition-all duration-300 hover:shadow-xl"
                 style={{
-                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                  border: '2px solid rgba(187, 40, 44, 0.2)',
-                  backdropFilter: 'blur(10px)'
+                  backgroundColor: '#fbf7eb',
+                  border: '2px solid rgba(187, 40, 44, 0.2)'
                 }}
               >
-                {/* Alternate layout: even index = image left, odd index = image right */}
-                {index % 2 === 0 ? (
-                  <>
-                    {/* Image on Left */}
-                    <div className="w-full md:w-1/3 flex-shrink-0">
-                      <img 
-                        src={service.image} 
-                        alt={service.title}
-                        className="w-full h-40 md:h-44 object-cover rounded-xl"
-                      />
-                    </div>
-
-                    {/* Text on Right */}
-                    <div className="w-full md:w-2/3">
-                      <h3 className="text-lg md:text-xl font-bold mb-2" style={{ color: 'rgba(0, 50, 83, 1)' }}>
-                        {service.title}
-                      </h3>
-                      <p className="text-sm md:text-base text-gray-700 leading-relaxed">
-                        {service.description}
-                      </p>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    {/* Text on Left */}
-                    <div className="w-full md:w-2/3 order-2 md:order-1">
-                      <h3 className="text-lg md:text-xl font-bold mb-2" style={{ color: 'rgba(0, 50, 83, 1)' }}>
-                        {service.title}
-                      </h3>
-                      <p className="text-sm md:text-base text-gray-700 leading-relaxed">
-                        {service.description}
-                      </p>
-                    </div>
-
-                    {/* Image on Right */}
-                    <div className="w-full md:w-1/3 flex-shrink-0 order-1 md:order-2">
-                      <img 
-                        src={service.image} 
-                        alt={service.title}
-                        className="w-full h-40 md:h-44 object-cover rounded-xl"
-                      />
-                    </div>
-                  </>
-                )}
+                <h3 className="text-xl font-bold mb-3" style={{ color: 'rgba(0, 50, 83, 1)' }}>
+                  {service.title}
+                </h3>
+                <p className="text-gray-600 leading-relaxed">
+                  {service.description}
+                </p>
               </div>
             ))}
           </div>
@@ -321,13 +259,13 @@ export default function LandingPage() {
       </section>
 
       {/* FAQ Section */}
-      <section className="py-8 md:py-12 lg:py-16 desert-sand-bg-subtle">
+      <section className="py-12 md:py-16 lg:py-20 desert-sand-bg-subtle">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-6 md:mb-8">
-            <h2 className="text-xl md:text-2xl lg:text-3xl font-bold mb-3" style={{ color: 'rgba(0, 50, 83, 1)' }}>
+          <div className="text-center mb-8 md:mb-12">
+            <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-4" style={{ color: 'rgba(0, 50, 83, 1)' }}>
               FAQS
             </h2>
-            <div className="w-20 h-1 mx-auto rounded-full mb-4" style={{ backgroundColor: 'rgba(187, 40, 44, 1)' }} />
+            <div className="w-24 h-1.5 mx-auto rounded-full mb-6" style={{ backgroundColor: 'rgba(187, 40, 44, 1)' }} />
           </div>
 
           <div className="space-y-4">
@@ -342,9 +280,9 @@ export default function LandingPage() {
               >
                 <button
                   onClick={() => toggleFAQ(index)}
-                  className="w-full px-4 md:px-5 py-3 md:py-4 flex items-center justify-between text-left transition-colors duration-200"
+                  className="w-full px-6 py-5 flex items-center justify-between text-left transition-colors duration-200"
                 >
-                  <span className="font-bold text-sm md:text-base" style={{ color: 'rgba(0, 50, 83, 1)' }}>
+                  <span className="font-bold text-lg" style={{ color: 'rgba(0, 50, 83, 1)' }}>
                     {faq.question}
                   </span>
                   {openFAQIndex === index ? (
@@ -355,8 +293,8 @@ export default function LandingPage() {
                 </button>
                 
                 {openFAQIndex === index && (
-                  <div className="px-4 md:px-5 pb-3 md:pb-4">
-                    <p className="text-xs md:text-sm text-gray-600 leading-relaxed">
+                  <div className="px-6 pb-5">
+                    <p className="text-gray-600 leading-relaxed">
                       {faq.answer}
                     </p>
                   </div>
@@ -368,47 +306,47 @@ export default function LandingPage() {
       </section>
 
       {/* Contact Section */}
-      <section id="contact" className="py-8 md:py-12 lg:py-16 bg-white">
+      <section id="contact" className="py-12 md:py-16 lg:py-20 bg-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-6 md:mb-8">
-            <h2 className="text-xl md:text-2xl lg:text-3xl font-bold mb-3" style={{ color: 'rgba(0, 50, 83, 1)' }}>
+          <div className="text-center mb-8 md:mb-12">
+            <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-4" style={{ color: 'rgba(0, 50, 83, 1)' }}>
               GET IN TOUCH
             </h2>
-            <div className="w-20 h-1 mx-auto rounded-full mb-4" style={{ backgroundColor: 'rgba(187, 40, 44, 1)' }} />
+            <div className="w-24 h-1.5 mx-auto rounded-full mb-6" style={{ backgroundColor: 'rgba(187, 40, 44, 1)' }} />
           </div>
 
-          <div className="max-w-3xl mx-auto space-y-4">
-            <div className="flex items-start space-x-3 p-4 md:p-5 rounded-2xl" style={{ backgroundColor: '#fbf7eb' }}>
-              <Mail className="w-5 h-5 mt-1" style={{ color: 'rgba(187, 40, 44, 1)' }} />
+          <div className="max-w-3xl mx-auto space-y-6">
+            <div className="flex items-start space-x-4 p-6 rounded-2xl" style={{ backgroundColor: '#fbf7eb' }}>
+              <Mail className="w-6 h-6 mt-1" style={{ color: 'rgba(187, 40, 44, 1)' }} />
               <div>
-                <h3 className="font-bold text-sm md:text-base mb-1" style={{ color: 'rgba(0, 50, 83, 1)' }}>Email</h3>
+                <h3 className="font-bold text-lg mb-1" style={{ color: 'rgba(0, 50, 83, 1)' }}>Email</h3>
                 <a 
                   href="mailto:info@falconglobalconsulting.com"
-                  className="text-xs md:text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                  className="text-gray-600 hover:text-gray-900 transition-colors"
                 >
                   info@falconglobalconsulting.com
                 </a>
               </div>
             </div>
 
-            <div className="flex items-start space-x-3 p-4 md:p-5 rounded-2xl" style={{ backgroundColor: '#fbf7eb' }}>
-              <Phone className="w-5 h-5 mt-1" style={{ color: 'rgba(187, 40, 44, 1)' }} />
+            <div className="flex items-start space-x-4 p-6 rounded-2xl" style={{ backgroundColor: '#fbf7eb' }}>
+              <Phone className="w-6 h-6 mt-1" style={{ color: 'rgba(187, 40, 44, 1)' }} />
               <div>
-                <h3 className="font-bold text-sm md:text-base mb-1" style={{ color: 'rgba(0, 50, 83, 1)' }}>Phone</h3>
+                <h3 className="font-bold text-lg mb-1" style={{ color: 'rgba(0, 50, 83, 1)' }}>Phone</h3>
                 <a 
                   href="tel:+5078388109"
-                  className="text-xs md:text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                  className="text-gray-600 hover:text-gray-900 transition-colors"
                 >
                   +507 838 8109
                 </a>
               </div>
             </div>
 
-            <div className="flex items-start space-x-3 p-4 md:p-5 rounded-2xl" style={{ backgroundColor: '#fbf7eb' }}>
-              <MapPin className="w-5 h-5 mt-1" style={{ color: 'rgba(187, 40, 44, 1)' }} />
+            <div className="flex items-start space-x-4 p-6 rounded-2xl" style={{ backgroundColor: '#fbf7eb' }}>
+              <MapPin className="w-6 h-6 mt-1" style={{ color: 'rgba(187, 40, 44, 1)' }} />
               <div>
-                <h3 className="font-bold text-sm md:text-base mb-1" style={{ color: 'rgba(0, 50, 83, 1)' }}>Address</h3>
-                <p className="text-xs md:text-sm text-gray-600">
+                <h3 className="font-bold text-lg mb-1" style={{ color: 'rgba(0, 50, 83, 1)' }}>Address</h3>
+                <p className="text-gray-600">
                   Headquartered in Panama, with offices in Germany, Portugal, Colombia, and India
                 </p>
               </div>
@@ -418,16 +356,17 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="py-4 md:py-6 desert-sand-bg-subtle border-t-2" style={{ borderColor: 'rgba(187, 40, 44, 0.2)' }}>
+      <footer className="py-8 desert-sand-bg-subtle border-t-2" style={{ borderColor: 'rgba(187, 40, 44, 0.2)' }}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <p className="text-xs md:text-sm text-gray-600">
+            <p className="text-gray-600">
               © {new Date().getFullYear()} Falcon Global Consulting Corp. All rights reserved.
             </p>
           </div>
         </div>
       </footer>
-      </div>
-    </>
+    </div>
   );
-}
+};
+
+export default SimpleLanding;

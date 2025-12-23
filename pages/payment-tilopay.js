@@ -3,10 +3,11 @@ import { useRouter } from 'next/router';
 import { ArrowLeft, Check } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOnboarding } from '../context/OnboardingContext';
+import { getEffectivePrice, DEFAULT_PRICING } from '../lib/custom-pricing';
 
 export default function PaymentTilopay() {
   const router = useRouter();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, supabase } = useAuth();
   const { onboardingData, markStepCompleted, setCurrentStep } = useOnboarding();
   const { plan: planParam } = router.query;
 
@@ -14,17 +15,63 @@ export default function PaymentTilopay() {
   const [tilopayLoaded, setTilopayLoaded] = useState(false);
   const [initResponse, setInitResponse] = useState(null);
   const [formRendered, setFormRendered] = useState(false);
+  const [effectivePrice, setEffectivePrice] = useState(null);
+  const [loadingPrice, setLoadingPrice] = useState(true);
 
-  const plans = {
+  const defaultPlans = {
     silver: { name: 'Silver', price: 299, amount: '$299' },
     gold: { name: 'Gold', price: 699, amount: '$699' },
-    diamond: { name: 'Diamond', price: 1599, amount: '$1,599' },
+    diamond: { name: 'Diamond', price: 1600, amount: '$1,600' },
     'diamond+': { name: 'Diamond+', price: 1, amount: '$1' }
   };
 
   // Decode the plan parameter to handle URL-encoded characters like '+'
   const decodedPlan = planParam ? decodeURIComponent(planParam).toLowerCase() : null;
-  const selectedPlan = plans[decodedPlan];
+  const planName = decodedPlan === 'diamond+' ? 'diamond-plus' : decodedPlan;
+
+  // Use effective price if loaded, otherwise use default
+  const selectedPlan = effectivePrice
+    ? {
+        name: defaultPlans[decodedPlan]?.name,
+        price: effectivePrice.pricePerPage,
+        amount: `$${effectivePrice.pricePerPage.toLocaleString()}`,
+        isCustom: effectivePrice.isCustom,
+        currency: effectivePrice.currency || 'USD'
+      }
+    : defaultPlans[decodedPlan];
+
+  // Fetch custom pricing for the user
+  useEffect(() => {
+    const fetchCustomPricing = async () => {
+      if (!user?.id || !planName) {
+        setLoadingPrice(false);
+        return;
+      }
+
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData?.session?.access_token;
+
+        if (!token) {
+          setLoadingPrice(false);
+          return;
+        }
+
+        const pricing = await getEffectivePrice(user.id, planName, DEFAULT_PRICING, token);
+
+        if (pricing.success) {
+          setEffectivePrice(pricing);
+          console.log('✨ Custom pricing loaded:', pricing.isCustom ? 'Custom' : 'Default', `$${pricing.pricePerPage}`);
+        }
+      } catch (error) {
+        console.error('Error fetching custom pricing:', error);
+      } finally {
+        setLoadingPrice(false);
+      }
+    };
+
+    fetchCustomPricing();
+  }, [user?.id, planName, supabase]);
 
   // Redirect if not authenticated
   useEffect(() => {

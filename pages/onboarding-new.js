@@ -13,6 +13,8 @@ import { countries } from '../utils/locationData';
 import { calculateVisaEligibility, getEligibilityScore } from '../utils/visaEligibility';
 import Toast from '../components/Toast';
 import Modal from '../components/Modal';
+import { supabase } from '../lib/supabase';
+import { getCustomPricing } from '../lib/custom-pricing';
 
 export default function OnboardingNew() {
   const router = useRouter();
@@ -36,6 +38,7 @@ export default function OnboardingNew() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [customPricing, setCustomPricing] = useState(null);
 
   // Toast and Modal state
   const [toast, setToast] = useState(null);
@@ -77,6 +80,24 @@ export default function OnboardingNew() {
   const [callDate, setCallDate] = useState('');
   const [callTime, setCallTime] = useState('');
 
+  // Fetch custom pricing for the user
+  useEffect(() => {
+    const fetchCustomPricing = async () => {
+      if (!user?.id) return;
+      
+      try {
+        const pricing = await getCustomPricing(user.id);
+        if (pricing) {
+          setCustomPricing(pricing);
+          console.log('✅ Custom pricing loaded for user:', pricing);
+        }
+      } catch (error) {
+        console.error('❌ Error fetching custom pricing:', error);
+      }
+    };
+
+    fetchCustomPricing();
+  }, [user?.id]);
 
   // Handle payment redirect from Tilopay
   useEffect(() => {
@@ -390,15 +411,27 @@ export default function OnboardingNew() {
   const handlePlanSelection = (plan) => {
     console.log('📦 Plan selected:', plan.name);
     
-    // Get plan amount
-    const planAmounts = {
-      'silver': 299,
-      'gold': 699,
-      'diamond': 1599,
-      'diamond+': 1  // Test price: $1
-    };
-    
-    const amount = planAmounts[plan.name.toLowerCase()] || 299;
+    // Get plan amount - use custom pricing if available, otherwise use defaults
+    let amount;
+    if (customPricing) {
+      const planAmounts = {
+        'silver': customPricing.silver_price,
+        'gold': customPricing.gold_price,
+        'diamond': customPricing.diamond_price,
+        'diamond+': customPricing.diamond_plus_price
+      };
+      amount = planAmounts[plan.name.toLowerCase()];
+      console.log(`💰 Using custom pricing for ${plan.name}: $${amount}`);
+    } else {
+      const planAmounts = {
+        'silver': 299,
+        'gold': 699,
+        'diamond': 1599,
+        'diamond+': 1
+      };
+      amount = planAmounts[plan.name.toLowerCase()] || 299;
+      console.log(`💰 Using default pricing for ${plan.name}: $${amount}`);
+    }
     
     // Redirect to minimal Tilopay page with plan details
     const params = new URLSearchParams({
@@ -1557,7 +1590,7 @@ export default function OnboardingNew() {
                   {[
                     {
                       name: 'Silver',
-                      price: '$299',
+                      price: customPricing ? `$${customPricing.silver_price}` : '$299',
                       popular: false,
                       features: [
                         'Career consultation & CV review',
@@ -1571,7 +1604,7 @@ export default function OnboardingNew() {
                     },
                     {
                       name: 'Gold',
-                      price: '$699',
+                      price: customPricing ? `$${customPricing.gold_price}` : '$699',
                       popular: true,
                       features: [
                         'Full relocation assistance',
@@ -1586,7 +1619,7 @@ export default function OnboardingNew() {
                     },
                     {
                       name: 'Diamond',
-                      price: '$1,599',
+                      price: customPricing ? `$${customPricing.diamond_price.toLocaleString()}` : '$1,599',
                       popular: false,
                       features: [
                         'End-to-end global recruitment solutions',
@@ -1601,7 +1634,7 @@ export default function OnboardingNew() {
                     },
                     {
                       name: 'Diamond+',
-                      price: '$1',
+                      price: customPricing ? `$${customPricing.diamond_plus_price}` : '$1',
                       popular: false,
                       features: [
                         'All Diamond features',
