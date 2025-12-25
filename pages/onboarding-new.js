@@ -40,6 +40,12 @@ export default function OnboardingNew() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [customPricing, setCustomPricing] = useState(null);
 
+  // Referral code state
+  const [referralCode, setReferralCode] = useState('');
+  const [referralDiscount, setReferralDiscount] = useState(null);
+  const [validatingCode, setValidatingCode] = useState(false);
+  const [codeError, setCodeError] = useState('');
+
   // Toast and Modal state
   const [toast, setToast] = useState(null);
   const [modal, setModal] = useState(null);
@@ -226,6 +232,17 @@ export default function OnboardingNew() {
     }
   }, [contextLoading]); // Only run once when loading completes
 
+  // Sync UI with database step changes
+  useEffect(() => {
+    if (contextLoading) return;
+    if (onboardingData.currentStep !== undefined && onboardingData.currentStep !== null) {
+      if (onboardingData.currentStep !== currentMainStep) {
+        console.log('🔄 Syncing UI step from database:', onboardingData.currentStep);
+        setCurrentMainStep(onboardingData.currentStep);
+      }
+    }
+  }, [onboardingData.currentStep, contextLoading]);
+
   // Helper function to add timeout to async operations
   const withTimeout = (promise, timeoutMs = 30000, operationName = 'Operation') => {
     return Promise.race([
@@ -406,11 +423,122 @@ export default function OnboardingNew() {
     }
   };
 
+  // Referral code functions
+  const handleApplyReferralCode = async () => {
+    if (!referralCode.trim()) {
+      setCodeError('Please enter a referral code');
+      return;
+    }
+
+    setValidatingCode(true);
+    setCodeError('');
+
+    try {
+      const response = await fetch('/api/validate-referral-code', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ code: referralCode.trim().toUpperCase() })
+      });
+
+      const result = await response.json();
+
+      if (result.valid) {
+        setReferralDiscount({
+          code: result.code,
+          percentage: result.discountPercentage
+        });
+        setCodeError('');
+        setToast({
+          type: 'success',
+          message: `${result.discountPercentage}% discount applied!`
+        });
+      } else {
+        setCodeError('Invalid referral code');
+        setReferralDiscount(null);
+      }
+    } catch (error) {
+      console.error('Error validating referral code:', error);
+      setCodeError('Error validating code. Please try again.');
+      setReferralDiscount(null);
+    } finally {
+      setValidatingCode(false);
+    }
+  };
+
+  const handleRemoveReferralCode = () => {
+    setReferralCode('');
+    setReferralDiscount(null);
+    setCodeError('');
+  };
+
+  const calculateDiscountedPrice = (originalPrice) => {
+    if (!referralDiscount) return originalPrice;
+    const discount = (originalPrice * referralDiscount.percentage) / 100;
+    return originalPrice - discount;
+  };
+
+  // Handle free plan activation (100% discount or $0 plans)
+  const handleFreePlanActivation = async (plan, originalAmount) => {
+    console.log('🎉 Free plan activation - bypassing payment gateway');
+
+    // Show success message immediately
+    setToast({
+      type: 'success',
+      message: '🎉 Free plan activated! Moving to next step...'
+    });
+
+    // Fire and forget - send API request in background without waiting
+    const requestBody = {
+      userId: user.id,
+      planName: plan.name,
+      originalAmount: originalAmount,
+      finalAmount: 0,
+      referralCode: referralDiscount?.code,
+      discountPercentage: referralDiscount?.percentage,
+      email: personalForm.email || user.email
+    };
+
+    // Get token and send request asynchronously
+    supabase.auth.getSession().then(({ data: sessionData }) => {
+      const token = sessionData?.session?.access_token;
+      if (token) {
+        fetch('/api/onboarding/free-plan-activation', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(requestBody)
+        }).then(res => res.json()).then(result => {
+          console.log('✅ Free plan API response:', result);
+        }).catch(err => {
+          console.error('❌ Free plan API error (non-blocking):', err);
+        });
+      }
+    });
+
+    // Immediately move to next step without waiting
+    try {
+      console.log('🚀 Moving to next step immediately');
+      await markStepCompleted(3);
+      await setCurrentStep(4);
+      setCurrentMainStep(3); // Step 4 in UI (index 3)
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (error) {
+      console.error('Error updating step:', error);
+      setToast({
+        type: 'error',
+        message: 'Error moving to next step. Please try again.'
+      });
+    }
+  };
 
   // Handle plan selection - Redirect to unified payment page (PayPal + Tilopay)
   const handlePlanSelection = (plan) => {
     console.log('📦 Plan selected:', plan.name);
-    
+
     // Get plan amount - use custom pricing if available, otherwise use defaults
     let amount;
     if (customPricing) {
@@ -432,16 +560,50 @@ export default function OnboardingNew() {
       amount = planAmounts[plan.name.toLowerCase()] || 299;
       console.log(`💰 Using default pricing for ${plan.name}: $${amount}`);
     }
-    
+
+    // Apply referral discount if available
+    const finalAmount = calculateDiscountedPrice(amount);
+
+    if (referralDiscount) {
+      const discountAmount = amount - finalAmount;
+      console.log(`🎫 Applying referral code "${referralDiscount.code}": ${referralDiscount.percentage}% off`);
+      console.log(`💵 Original: $${amount} → Discounted: $${finalAmount} (Saved: $${discountAmount.toFixed(2)})`);
+    }
+
+    // Log final pricing details
+    console.log('💰 Plan Selection Summary:', {
+      plan: plan.name,
+      originalAmount: amount,
+      discountedAmount: finalAmount,
+      isFree: finalAmount <= 0.01,
+      referralCode: referralDiscount?.code,
+      discountPercentage: referralDiscount?.percentage
+    });
+
+    // Check if amount is $0 or near-zero (free plan)
+    if (finalAmount <= 0.01) {
+      console.log('🎁 Free plan detected! Bypassing payment gateway...');
+      handleFreePlanActivation(plan, amount);
+      return;
+    }
+
     // Redirect to minimal Tilopay page with plan details
     const params = new URLSearchParams({
-      amount: amount,
+      amount: finalAmount,
       planName: plan.name,
       userId: user.id,
       email: personalForm.email || user.email,
       returnUrl: window.location.origin + '/onboarding-new?payment=success'
     });
-    
+
+    // Add referral code info if applied
+    if (referralDiscount) {
+      params.append('referralCode', referralDiscount.code);
+      params.append('discountPercentage', referralDiscount.percentage);
+      params.append('originalAmount', amount);
+    }
+
+    console.log('💳 Redirecting to Tilopay payment page...');
     // Open in same window
     window.location.href = `/test-tilopay-minimal.html?${params.toString()}`;
   };
@@ -1586,6 +1748,64 @@ export default function OnboardingNew() {
                   <p className="text-gray-600">Select the plan that best fits your relocation needs</p>
                 </div>
 
+                {/* Referral Code Section */}
+                <div className="max-w-2xl mx-auto mb-8 bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
+                  <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+                    <svg className="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+                    </svg>
+                    Have a Referral Code?
+                  </h3>
+                  {!referralDiscount ? (
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <input
+                        type="text"
+                        value={referralCode}
+                        onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                        placeholder="Enter 5-digit code (e.g., ABC12)"
+                        maxLength={5}
+                        className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none uppercase font-mono text-lg"
+                        disabled={validatingCode}
+                      />
+                      <button
+                        onClick={handleApplyReferralCode}
+                        disabled={validatingCode || !referralCode.trim()}
+                        className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium whitespace-nowrap"
+                      >
+                        {validatingCode ? 'Checking...' : 'Apply Code'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <div className="flex-shrink-0">
+                          <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="font-bold text-green-900">Code "{referralDiscount.code}" Applied!</p>
+                          <p className="text-sm text-green-700">
+                            You'll get <span className="font-semibold">{referralDiscount.percentage}% OFF</span> on your selected plan
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleRemoveReferralCode}
+                        className="text-red-600 hover:text-red-800 font-medium text-sm px-3 py-1 rounded hover:bg-red-50 transition-colors"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )}
+                  {codeError && (
+                    <p className="text-red-600 text-sm mt-2 flex items-center">
+                      <AlertCircle className="w-4 h-4 mr-1" />
+                      {codeError}
+                    </p>
+                  )}
+                </div>
+
                 <div className="grid md:grid-cols-2 gap-6 mt-8">
                   {[
                     {
@@ -1718,15 +1938,55 @@ export default function OnboardingNew() {
                           </h3>
 
                           <div className="mb-3">
-                            <div
-                              className="text-xl md:text-2xl font-bold"
-                              style={{
-                                color: 'rgba(0, 50, 83, 1)',
-                                textShadow: '0 2px 10px rgba(255, 255, 255, 0.5)'
-                              }}
-                            >
-                              {plan.price}
-                            </div>
+                            {(() => {
+                              // Extract numeric price
+                              const priceStr = plan.price.replace(/[$,]/g, '');
+                              const originalPrice = parseFloat(priceStr);
+
+                              if (isNaN(originalPrice)) {
+                                return (
+                                  <div
+                                    className="text-xl md:text-2xl font-bold"
+                                    style={{
+                                      color: 'rgba(0, 50, 83, 1)',
+                                      textShadow: '0 2px 10px rgba(255, 255, 255, 0.5)'
+                                    }}
+                                  >
+                                    {plan.price}
+                                  </div>
+                                );
+                              }
+
+                              const discountedPrice = calculateDiscountedPrice(originalPrice);
+                              const hasDiscount = referralDiscount && discountedPrice !== originalPrice;
+
+                              return (
+                                <div>
+                                  {hasDiscount && (
+                                    <div
+                                      className="text-sm line-through opacity-60 mb-1"
+                                      style={{ color: 'rgba(0, 50, 83, 0.7)' }}
+                                    >
+                                      ${originalPrice.toLocaleString()}
+                                    </div>
+                                  )}
+                                  <div
+                                    className="text-xl md:text-2xl font-bold"
+                                    style={{
+                                      color: hasDiscount ? 'rgba(22, 163, 74, 1)' : 'rgba(0, 50, 83, 1)',
+                                      textShadow: '0 2px 10px rgba(255, 255, 255, 0.5)'
+                                    }}
+                                  >
+                                    ${discountedPrice.toLocaleString()}
+                                  </div>
+                                  {hasDiscount && (
+                                    <div className="text-xs font-bold mt-1 text-green-600">
+                                      {referralDiscount.percentage}% OFF!
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()}
                             {plan.price !== 'Price negotiable' && (
                               <div className="text-xs font-semibold mt-1" style={{ color: 'rgba(0, 50, 83, 0.7)' }}>
                                 USD

@@ -190,19 +190,13 @@ export function OnboardingProvider({ children }) {
 
       console.log('📊 Saving data:', { userId: user.id, step: dbData.current_step, completedSteps: dbData.completed_steps });
 
-      // Use Promise.race to add timeout (30 seconds)
-      const savePromise = supabase
+      // Direct database save without timeout
+      const { data, error } = await supabase
         .from('onboarding_data')
         .upsert(dbData, {
           onConflict: 'user_id',
           ignoreDuplicates: false
         });
-
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Database save timeout after 30s')), 30000)
-      );
-
-      const { data, error } = await Promise.race([savePromise, timeoutPromise]);
 
       if (error) {
         console.error('❌ Database save error:', error.message);

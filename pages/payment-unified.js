@@ -23,6 +23,12 @@ export default function UnifiedPaymentPage() {
   const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState(null);
   const [planDetails, setPlanDetails] = useState(null);
+  const [referralCode, setReferralCode] = useState('');
+  const [referralDiscount, setReferralDiscount] = useState(null);
+  const [validatingCode, setValidatingCode] = useState(false);
+  const [codeError, setCodeError] = useState('');
+  const [originalAmount, setOriginalAmount] = useState(0);
+  const [discountedAmount, setDiscountedAmount] = useState(0);
 
   // Plan pricing configuration
   const plans = {
@@ -110,13 +116,69 @@ export default function UnifiedPaymentPage() {
 
       // Set plan details
       const selectedPlan = plan?.toLowerCase() || 'silver';
-      setPlanDetails(plans[selectedPlan] || plans.silver);
+      const planData = plans[selectedPlan] || plans.silver;
+      setPlanDetails(planData);
+      setOriginalAmount(planData.amount);
+      setDiscountedAmount(planData.amount);
 
     } catch (error) {
       console.error('Error initializing payment:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleApplyReferralCode = async () => {
+    if (!referralCode.trim()) {
+      setCodeError('Please enter a referral code');
+      return;
+    }
+
+    setValidatingCode(true);
+    setCodeError('');
+
+    try {
+      const response = await fetch('/api/validate-referral-code', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ code: referralCode.trim().toUpperCase() })
+      });
+
+      const result = await response.json();
+
+      if (result.valid) {
+        const discount = (originalAmount * result.discountPercentage) / 100;
+        const newAmount = originalAmount - discount;
+
+        setReferralDiscount({
+          code: result.code,
+          percentage: result.discountPercentage,
+          discountAmount: discount
+        });
+        setDiscountedAmount(newAmount);
+        setCodeError('');
+      } else {
+        setCodeError('Invalid referral code');
+        setReferralDiscount(null);
+        setDiscountedAmount(originalAmount);
+      }
+    } catch (error) {
+      console.error('Error validating referral code:', error);
+      setCodeError('Error validating code. Please try again.');
+      setReferralDiscount(null);
+      setDiscountedAmount(originalAmount);
+    } finally {
+      setValidatingCode(false);
+    }
+  };
+
+  const handleRemoveReferralCode = () => {
+    setReferralCode('');
+    setReferralDiscount(null);
+    setCodeError('');
+    setDiscountedAmount(originalAmount);
   };
 
   const handlePaymentSuccess = async (data) => {
@@ -128,11 +190,15 @@ export default function UnifiedPaymentPage() {
         payment_completed: true,
         payment_details: {
           plan: planDetails.name.toLowerCase(),
-          amount: planDetails.amount,
+          amount: discountedAmount,
+          originalAmount: originalAmount,
           currency: 'USD',
           gateway: data.gateway,
           transactionId: data.transactionId || data.captureId,
           orderNumber: data.orderNumber,
+          referralCode: referralDiscount?.code || null,
+          discountPercentage: referralDiscount?.percentage || 0,
+          discountAmount: referralDiscount?.discountAmount || 0,
           timestamp: new Date().toISOString(),
         },
       });
@@ -212,11 +278,75 @@ export default function UnifiedPaymentPage() {
                 <p className="text-gray-600">{planDetails.description}</p>
               </div>
               <div className="text-right">
-                <div className="text-3xl font-bold text-blue-600">
-                  ${planDetails.amount}
-                </div>
-                <div className="text-sm text-gray-500">per month</div>
+                {referralDiscount ? (
+                  <>
+                    <div className="text-lg text-gray-400 line-through">
+                      ${originalAmount}
+                    </div>
+                    <div className="text-3xl font-bold text-green-600">
+                      ${discountedAmount.toFixed(2)}
+                    </div>
+                    <div className="text-sm text-green-600 font-semibold">
+                      {referralDiscount.percentage}% OFF Applied!
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-3xl font-bold text-blue-600">
+                      ${planDetails.amount}
+                    </div>
+                    <div className="text-sm text-gray-500">per month</div>
+                  </>
+                )}
               </div>
+            </div>
+
+            {/* Referral Code Section */}
+            <div className="border-t pt-4 mt-4 mb-4">
+              <h3 className="font-semibold text-gray-900 mb-3">Have a Referral Code?</h3>
+              {!referralDiscount ? (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={referralCode}
+                    onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                    placeholder="Enter code (e.g., ABC123)"
+                    maxLength={5}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none uppercase"
+                    disabled={validatingCode}
+                  />
+                  <button
+                    onClick={handleApplyReferralCode}
+                    disabled={validatingCode || !referralCode.trim()}
+                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                  >
+                    {validatingCode ? 'Checking...' : 'Apply'}
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <p className="font-semibold text-green-900">Code "{referralDiscount.code}" Applied</p>
+                      <p className="text-sm text-green-700">
+                        You're saving ${referralDiscount.discountAmount.toFixed(2)} ({referralDiscount.percentage}% off)
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleRemoveReferralCode}
+                    className="text-red-600 hover:text-red-800 font-medium text-sm"
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
+              {codeError && (
+                <p className="text-red-600 text-sm mt-2">{codeError}</p>
+              )}
             </div>
 
             {/* User Info */}
@@ -256,7 +386,7 @@ export default function UnifiedPaymentPage() {
               email={userData.email}
               firstName={userData.firstName}
               lastName={userData.lastName}
-              amount={planDetails.amount}
+              amount={discountedAmount}
               planName={planDetails.name}
               currency="USD"
               address={userData.address}
