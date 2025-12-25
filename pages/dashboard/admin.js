@@ -69,6 +69,7 @@ export default function AdminDashboard() {
   const [showUserLeadsModal, setShowUserLeadsModal] = useState(false);
   const [expandedJobId, setExpandedJobId] = useState(null); // ID of expanded job to show details
   const [dataInitialized, setDataInitialized] = useState(false); // Track if initial data load happened
+  const [lastDataFetch, setLastDataFetch] = useState(null); // Track last data fetch time
 
   useEffect(() => {
     // Don't run if auth is still loading
@@ -104,14 +105,20 @@ export default function AdminDashboard() {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden && isAuthenticated && user?.role === 'admin') {
-        console.log('🔄 Page visible again, refreshing data...');
-        loadAdminData();
+        // Only refresh if data hasn't been fetched in the last 30 seconds
+        const now = Date.now();
+        if (!lastDataFetch || now - lastDataFetch > 30000) {
+          console.log('🔄 Page visible again, refreshing data...');
+          loadAdminData();
+        } else {
+          console.log('⏭️ Data recently fetched, skipping refresh...');
+        }
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, lastDataFetch]);
 
   // Reload data when navigating back to this page
   useEffect(() => {
@@ -126,6 +133,20 @@ export default function AdminDashboard() {
     return () => router.events?.off('routeChangeComplete', handleRouteChange);
   }, [isAuthenticated, user, router]);
 
+  // Reload data when switching to specific tabs if data hasn't been loaded yet
+  useEffect(() => {
+    if (isAuthenticated && user?.role === 'admin' && supabase && !authLoading && !loading) {
+      // Only reload if switching to a tab and the respective data is empty
+      if (activeTab === 'users' && allUsers.length === 0) {
+        console.log('🔄 Loading users data...');
+        fetchAllUsers();
+      } else if (activeTab === 'applications' && allApplications.length === 0) {
+        console.log('🔄 Loading applications data...');
+        fetchAllApplications();
+      }
+    }
+  }, [activeTab]);
+
   const loadAdminData = async () => {
     console.log('📊 Starting admin data load...');
     setLoading(true);
@@ -139,7 +160,7 @@ export default function AdminDashboard() {
         fetchNotifications(),
         fetchUserJobLeads()
       ]);
-      
+
       // Log any failures
       results.forEach((result, index) => {
         const names = ['Stats', 'RecentUsers', 'RecentApplications', 'AllUsers', 'AllApplications', 'Notifications', 'UserJobLeads'];
@@ -149,7 +170,9 @@ export default function AdminDashboard() {
           console.log(`✅ ${names[index]} loaded successfully`);
         }
       });
-      
+
+      // Update last fetch timestamp
+      setLastDataFetch(Date.now());
       console.log('✅ Admin data load complete');
     } catch (error) {
       console.error('❌ Critical error loading admin data:', error);
@@ -1388,9 +1411,6 @@ export default function AdminDashboard() {
                         title="View User"
                       >
                         <Eye className="w-5 h-5 text-gray-600" />
-                      </button>
-                      <button className="p-2 hover:bg-gray-200 rounded-lg transition-colors" title="Edit User">
-                        <Edit className="w-5 h-5 text-gray-600" />
                       </button>
                       <button
                         onClick={() => {

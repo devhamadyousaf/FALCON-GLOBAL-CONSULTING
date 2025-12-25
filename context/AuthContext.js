@@ -13,20 +13,43 @@ export function AuthProvider({ children }) {
   const { showToast } = useToast ? useToast() : { showToast: () => {} };
 
   useEffect(() => {
-    // Failsafe: If auth check takes too long (10 seconds), stop loading to prevent white screen
-    const failsafeTimer = setTimeout(() => {
-      if (loading) {
-        console.warn('⚠️ Auth check timeout - stopping loading state to prevent white screen');
-        setLoading(false);
-      }
-    }, 10000);
+    let isInitialLoad = true;
 
     // Get initial session
-    checkUserSession();
+    const initAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
 
-    // Listen for auth changes
+        if (error) {
+          console.error('Error getting session:', error);
+          setLoading(false);
+          return;
+        }
+
+        if (session?.user) {
+          await loadUserProfile(session.user);
+        } else {
+          setUser(null);
+        }
+      } catch (error) {
+        console.error('Error checking user session:', error);
+      } finally {
+        setLoading(false);
+        isInitialLoad = false;
+      }
+    };
+
+    initAuth();
+
+    // Listen for auth changes (but skip initial SIGNED_IN event)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth event:', event);
+
+      // Skip processing if this is the initial load event
+      if (isInitialLoad && event === 'INITIAL_SESSION') {
+        console.log('⏭️ Skipping initial session event (already processed)');
+        return;
+      }
 
       if (session?.user) {
         await loadUserProfile(session.user);
@@ -38,32 +61,9 @@ export function AuthProvider({ children }) {
     });
 
     return () => {
-      clearTimeout(failsafeTimer);
       subscription?.unsubscribe();
     };
   }, []);
-
-  const checkUserSession = async () => {
-    try {
-      const { data: { session }, error } = await supabase.auth.getSession();
-
-      if (error) {
-        console.error('Error getting session:', error);
-        setLoading(false);
-        return;
-      }
-
-      if (session?.user) {
-        await loadUserProfile(session.user);
-      } else {
-        setUser(null);
-      }
-    } catch (error) {
-      console.error('Error checking user session:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const loadUserProfile = async (authUser) => {
     try {
