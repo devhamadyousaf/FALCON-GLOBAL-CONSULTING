@@ -4,7 +4,6 @@ import { useAuth } from '../../context/AuthContext';
 import {
   Users,
   FileText,
-  Settings,
   BarChart3,
   LogOut,
   Menu,
@@ -36,7 +35,6 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
   const [searchQuery, setSearchQuery] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [loading, setLoading] = useState(true);
   
   // Dynamic data states
@@ -92,7 +90,7 @@ export default function AdminDashboard() {
 
     // Ensure supabase client is ready
     if (!supabase) {
-      console.warn('⚠️ Supabase client not ready yet');
+      console.warn('⚠️ Supabase client not ready yet, waiting...');
       return;
     }
 
@@ -104,7 +102,8 @@ export default function AdminDashboard() {
   // Refresh data when returning to the page (when it becomes visible)
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (!document.hidden && isAuthenticated && user?.role === 'admin') {
+      // Only refresh if page becomes visible (not hidden) and user is admin
+      if (!document.hidden && isAuthenticated && user?.role === 'admin' && router.pathname === '/dashboard/admin') {
         // Only refresh if data hasn't been fetched in the last 30 seconds
         const now = Date.now();
         if (!lastDataFetch || now - lastDataFetch > 30000) {
@@ -118,7 +117,7 @@ export default function AdminDashboard() {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [isAuthenticated, user, lastDataFetch]);
+  }, [isAuthenticated, user, lastDataFetch, router.pathname]);
 
   // Reload data when navigating back to this page
   useEffect(() => {
@@ -150,32 +149,53 @@ export default function AdminDashboard() {
   const loadAdminData = async () => {
     console.log('📊 Starting admin data load...');
     setLoading(true);
+
+    // Safety check - ensure supabase is initialized
+    if (!supabase) {
+      console.error('❌ Supabase client not initialized');
+      setLoading(false);
+      return;
+    }
+
     try {
+      // Wrap each fetch in a safe promise that never rejects
+      const safeFetch = (fetchFn, name) => {
+        return fetchFn().catch((error) => {
+          console.error(`❌ Error in ${name}:`, error.message || error);
+          return Promise.resolve(); // Always resolve to prevent rejection
+        });
+      };
+
+      // Just wait for all fetches to complete - no timeout race
+      // Promise.allSettled ensures we wait for all to finish regardless of success/failure
       const results = await Promise.allSettled([
-        fetchStats(),
-        fetchRecentUsers(),
-        fetchRecentApplications(),
-        fetchAllUsers(),
-        fetchAllApplications(),
-        fetchNotifications(),
-        fetchUserJobLeads()
+        safeFetch(fetchStats, 'fetchStats'),
+        safeFetch(fetchRecentUsers, 'fetchRecentUsers'),
+        safeFetch(fetchRecentApplications, 'fetchRecentApplications'),
+        safeFetch(fetchAllUsers, 'fetchAllUsers'),
+        safeFetch(fetchAllApplications, 'fetchAllApplications'),
+        safeFetch(fetchNotifications, 'fetchNotifications'),
+        safeFetch(fetchUserJobLeads, 'fetchUserJobLeads')
       ]);
 
       // Log any failures
-      results.forEach((result, index) => {
-        const names = ['Stats', 'RecentUsers', 'RecentApplications', 'AllUsers', 'AllApplications', 'Notifications', 'UserJobLeads'];
-        if (result.status === 'rejected') {
-          console.error(`❌ Failed to load ${names[index]}:`, result.reason);
-        } else {
-          console.log(`✅ ${names[index]} loaded successfully`);
-        }
-      });
+      if (Array.isArray(results) && results.length > 0) {
+        results.forEach((result, index) => {
+          const names = ['Stats', 'RecentUsers', 'RecentApplications', 'AllUsers', 'AllApplications', 'Notifications', 'UserJobLeads'];
+          if (result.status === 'rejected') {
+            console.error(`❌ Failed to load ${names[index]}:`, result.reason);
+          } else {
+            console.log(`✅ ${names[index]} loaded successfully`);
+          }
+        });
+      }
 
       // Update last fetch timestamp
       setLastDataFetch(Date.now());
       console.log('✅ Admin data load complete');
     } catch (error) {
-      console.error('❌ Critical error loading admin data:', error);
+      // Silently handle errors - don't show to user
+      console.error('❌ Error loading admin data:', error.message || error);
     } finally {
       setLoading(false);
     }
@@ -294,7 +314,7 @@ export default function AdminDashboard() {
           applied_at,
           user_id,
           profiles!inner(full_name, email),
-          Job-Leads!inner(jobTitle, companyName)
+          Job-Leads!inner(jobtitle, companyname)
         `)
         .order('applied_at', { ascending: false })
         .limit(5);
@@ -353,7 +373,7 @@ export default function AdminDashboard() {
           applied_at,
           user_id,
           profiles!inner(full_name, email),
-          Job-Leads!inner(jobTitle, companyName)
+          Job-Leads!inner(jobtitle, companyname)
         `)
         .order('applied_at', { ascending: false });
 
@@ -867,8 +887,7 @@ export default function AdminDashboard() {
   const navigationTabs = [
     { id: 'overview', name: 'Overview', icon: BarChart3 },
     { id: 'users', name: 'User Management', icon: Users },
-    { id: 'applications', name: 'Applications', icon: FileText },
-    { id: 'settings', name: 'Settings', icon: Settings }
+    { id: 'applications', name: 'Applications', icon: FileText }
   ];
 
   // Display users list based on active tab
@@ -1016,11 +1035,7 @@ export default function AdminDashboard() {
               <button
                 key={tab.id}
                 onClick={() => {
-                  if (tab.id === 'settings') {
-                    setShowSettings(true);
-                  } else {
-                    setActiveTab(tab.id);
-                  }
+                  setActiveTab(tab.id);
                 }}
                 className="flex items-center space-x-2 px-4 py-2 font-bold text-sm transition-colors whitespace-nowrap rounded-lg"
                 style={{
@@ -1314,13 +1329,6 @@ export default function AdminDashboard() {
               <FileText className="w-5 h-5" />
               <span>View Job Leads</span>
             </button>
-            <button
-              onClick={() => handleExportData('all', 'json')}
-              disabled={exporting}
-              className="flex items-center justify-center space-x-2 px-6 py-4 bg-gradient-to-r from-orange-600 to-orange-700 text-white rounded-xl hover:from-orange-700 hover:to-orange-800 transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed">
-              <Download className="w-5 h-5" />
-              <span>{exporting ? 'Exporting...' : 'Export Data'}</span>
-            </button>
           </div>
         </div>
         </>
@@ -1505,9 +1513,9 @@ export default function AdminDashboard() {
                       </div>
                       <div>
                         <p className="font-semibold text-gray-900 text-lg">{app.profiles?.full_name || 'Unknown User'}</p>
-                        <p className="text-sm text-gray-500">{app['Job-Leads']?.jobTitle || 'Job Application'}</p>
+                        <p className="text-sm text-gray-500">{app['Job-Leads']?.jobtitle || 'Job Application'}</p>
                         <p className="text-xs text-gray-400 mt-1">
-                          {app['Job-Leads']?.companyName || 'Unknown Company'} • {getTimeAgo(app.applied_at)}
+                          {app['Job-Leads']?.companyname || 'Unknown Company'} • {getTimeAgo(app.applied_at)}
                         </p>
                       </div>
                     </div>
@@ -1625,130 +1633,6 @@ export default function AdminDashboard() {
               >
                 Mark All as Read {unreadCount > 0 && `(${unreadCount})`}
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Settings Modal */}
-      {showSettings && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div
-            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[100]"
-            onClick={() => setShowSettings(false)}
-          />
-          <div
-            className="relative w-full max-w-2xl rounded-2xl shadow-2xl border backdrop-blur-md max-h-[90vh] overflow-y-auto z-[101]"
-            style={{
-              backgroundColor: 'rgba(255, 255, 255, 0.95)',
-              borderColor: 'rgba(255, 255, 255, 0.3)'
-            }}
-          >
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-2xl font-bold" style={{ color: 'rgba(0, 50, 83, 1)' }}>
-                  Admin Settings
-                </h3>
-                <button
-                  onClick={() => setShowSettings(false)}
-                  className="p-2 rounded-lg hover:bg-gray-100"
-                >
-                  <X className="w-6 h-6" style={{ color: 'rgba(0, 50, 83, 0.8)' }} />
-                </button>
-              </div>
-
-              <div className="space-y-6">
-                {/* System Settings */}
-                <div>
-                  <h4 className="text-lg font-semibold mb-4" style={{ color: 'rgba(0, 50, 83, 1)' }}>
-                    System Configuration
-                  </h4>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Platform Name
-                      </label>
-                      <input
-                        type="text"
-                        defaultValue="Falcon Global Consulting"
-                        className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none"
-                        style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Support Email
-                      </label>
-                      <input
-                        type="email"
-                        defaultValue="admin@falconglobalconsulting.com"
-                        className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none"
-                        style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Max Users per Month
-                      </label>
-                      <input
-                        type="number"
-                        defaultValue="1000"
-                        className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none"
-                        style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Feature Toggles */}
-                <div>
-                  <h4 className="text-lg font-semibold mb-4" style={{ color: 'rgba(0, 50, 83, 1)' }}>
-                    Feature Management
-                  </h4>
-                  <div className="space-y-3">
-                    {['Job Applications', 'Visa Processing', 'Housing Services', 'Auto Notifications', 'Payment Gateway'].map((feature) => (
-                      <label key={feature} className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 cursor-pointer">
-                        <span className="text-gray-700">{feature}</span>
-                        <input
-                          type="checkbox"
-                          defaultChecked
-                          className="w-5 h-5 rounded"
-                          style={{ accentColor: 'rgba(0, 50, 83, 1)' }}
-                        />
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Security */}
-                <div>
-                  <h4 className="text-lg font-semibold mb-4" style={{ color: 'rgba(0, 50, 83, 1)' }}>
-                    Security
-                  </h4>
-                  <div className="space-y-3">
-                    <button
-                      className="w-full px-4 py-3 rounded-xl font-semibold text-white transition-all duration-200"
-                      style={{ backgroundColor: 'rgba(187, 40, 44, 1)' }}
-                    >
-                      Change Admin Password
-                    </button>
-                    <button
-                      className="w-full px-4 py-3 rounded-xl font-semibold border transition-all duration-200"
-                      style={{ borderColor: 'rgba(0, 50, 83, 0.3)', color: 'rgba(0, 50, 83, 1)' }}
-                    >
-                      View Activity Logs
-                    </button>
-                  </div>
-                </div>
-
-                {/* Save Button */}
-                <button
-                  className="w-full px-6 py-4 rounded-xl font-semibold text-white transition-all duration-200 shadow-lg"
-                  style={{ backgroundColor: 'rgba(0, 50, 83, 1)' }}
-                >
-                  Save All Changes
-                </button>
-              </div>
             </div>
           </div>
         </div>

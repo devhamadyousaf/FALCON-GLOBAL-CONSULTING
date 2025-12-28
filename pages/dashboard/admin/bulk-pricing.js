@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../../context/AuthContext';
 import { bulkUpdatePricing, AVAILABLE_PLANS } from '../../../lib/custom-pricing';
@@ -14,7 +14,7 @@ import {
 
 export default function BulkPricingPage() {
   const router = useRouter();
-  const { user, isAuthenticated, supabase } = useAuth();
+  const { user, isAuthenticated, supabase, loading: authLoading } = useAuth();
   const [selectedPlan, setSelectedPlan] = useState('');
   const [newPrice, setNewPrice] = useState('');
   const [currency, setCurrency] = useState('USD');
@@ -23,8 +23,16 @@ export default function BulkPricingPage() {
   const [result, setResult] = useState(null);
 
   // Redirect if not admin
+  useEffect(() => {
+    if (authLoading) return;
+
+    if (!isAuthenticated || user?.role !== 'admin') {
+      router.push('/dashboard/admin');
+    }
+  }, [authLoading, isAuthenticated, user, router]);
+
+  // Don't render if not authenticated or not admin
   if (!isAuthenticated || user?.role !== 'admin') {
-    router.push('/dashboard/admin');
     return null;
   }
 

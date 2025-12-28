@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../../../context/AuthContext';
-import { getCustomPricing, saveCustomPricing, deleteCustomPricing, AVAILABLE_PLANS } from '../../../../lib/custom-pricing';
+import { saveCustomPricing, deleteCustomPricing, AVAILABLE_PLANS } from '../../../../lib/custom-pricing';
 import {
   ArrowLeft,
   User,
@@ -54,135 +54,9 @@ export default function UserDetailPage() {
   });
   const [savingPricing, setSavingPricing] = useState(false);
 
-  useEffect(() => {
-    if (!isAuthenticated || !currentUser) {
-      router.push('/login');
-      return;
-    }
-
-    if (currentUser.role !== 'admin') {
-      router.push('/dashboard/customer');
-      return;
-    }
-
-    if (userId) {
-      console.log('🔄 Loading user data for userId:', userId);
-      loadUserData();
-    }
-  }, [isAuthenticated, currentUser, userId]);
-
-  // Separate effect to reload data when tab changes
-  useEffect(() => {
-    if (activeTab === 'pricing' && userId && isAuthenticated) {
-      console.log('🔄 Pricing tab activated, refreshing pricing data...');
-      fetchCustomPricing();
-    }
-  }, [activeTab, userId, isAuthenticated]);
-
-  const loadUserData = async () => {
-    setLoading(true);
-    try {
-      await Promise.all([
-        fetchUserProfile(),
-        fetchUserApplications(),
-        fetchUserDocuments(),
-        fetchUserPayments(),
-        fetchOnboardingData(),
-        fetchCustomPricing()
-      ]);
-    } catch (error) {
-      console.error('Error loading user data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchUserProfile = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      if (error) throw error;
-      setUserData(data);
-    } catch (error) {
-      console.error('Error fetching user profile:', error);
-    }
-  };
-
-  const fetchUserApplications = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('job_applications')
-        .select(`
-          id,
-          status,
-          applied_at,
-          updated_at,
-          Job-Leads!inner(jobTitle, companyName, location)
-        `)
-        .eq('user_id', userId)
-        .order('applied_at', { ascending: false });
-
-      if (error) throw error;
-      setUserApplications(data || []);
-    } catch (error) {
-      console.error('Error fetching user applications:', error);
-    }
-  };
-
-  const fetchUserDocuments = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('documents')
-        .select('*')
-        .eq('user_id', userId)
-        .order('uploaded_at', { ascending: false });
-
-      if (error) throw error;
-      setUserDocuments(data || []);
-    } catch (error) {
-      console.error('Error fetching user documents:', error);
-    }
-  };
-
-  const fetchUserPayments = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('payments')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setUserPayments(data || []);
-    } catch (error) {
-      console.error('Error fetching user payments:', error);
-    }
-  };
-
-  const fetchOnboardingData = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('onboarding_data')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
-
-      if (error) {
-        console.error('Error fetching onboarding data:', error);
-        return;
-      }
-      setOnboardingData(data);
-    } catch (error) {
-      console.error('Error fetching onboarding data:', error);
-    }
-  };
-
-  const fetchCustomPricing = async () => {
-    if (!userId) return;
+  // Standalone fetchCustomPricing for tab refresh
+  const fetchCustomPricing = useCallback(async () => {
+    if (!userId || !supabase) return;
 
     setLoadingPricing(true);
     try {
@@ -205,7 +79,163 @@ export default function UserDetailPage() {
     } finally {
       setLoadingPricing(false);
     }
-  };
+  }, [userId, supabase]);
+
+  const loadUserData = useCallback(async () => {
+    if (!userId || !supabase) return;
+
+    const fetchUserProfile = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single();
+
+        if (error) throw error;
+        setUserData(data);
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+        throw error;
+      }
+    };
+
+    const fetchUserApplications = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('job_applications')
+          .select(`
+            id,
+            status,
+            applied_at,
+            updated_at,
+            Job-Leads!inner(jobtitle, companyname, location)
+          `)
+          .eq('user_id', userId)
+          .order('applied_at', { ascending: false });
+
+        if (error) throw error;
+        setUserApplications(data || []);
+      } catch (error) {
+        console.error('Error fetching user applications:', error);
+        throw error;
+      }
+    };
+
+    const fetchUserDocuments = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('documents')
+          .select('*')
+          .eq('user_id', userId)
+          .order('uploaded_at', { ascending: false });
+
+        if (error) throw error;
+        setUserDocuments(data || []);
+      } catch (error) {
+        console.error('Error fetching user documents:', error);
+        throw error;
+      }
+    };
+
+    const fetchUserPayments = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('payments')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        setUserPayments(data || []);
+      } catch (error) {
+        console.error('Error fetching user payments:', error);
+        throw error;
+      }
+    };
+
+    const fetchOnboardingData = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('onboarding_data')
+          .select('*')
+          .eq('user_id', userId)
+          .single();
+
+        if (error) {
+          // PGRST116 means no rows found - this is expected if user hasn't started onboarding
+          if (error.code === 'PGRST116') {
+            console.log('ℹ️ No onboarding data found for this user');
+            setOnboardingData(null);
+            return;
+          }
+          console.error('Error fetching onboarding data:', error);
+          throw error;
+        }
+        setOnboardingData(data);
+      } catch (error) {
+        console.error('Error fetching onboarding data:', error);
+        throw error;
+      }
+    };
+
+    setLoading(true);
+    try {
+      console.log('📊 Starting to load all user data...');
+      const results = await Promise.allSettled([
+        fetchUserProfile(),
+        fetchUserApplications(),
+        fetchUserDocuments(),
+        fetchUserPayments(),
+        fetchOnboardingData(),
+        fetchCustomPricing()
+      ]);
+
+      // Log results
+      const names = ['Profile', 'Applications', 'Documents', 'Payments', 'Onboarding', 'CustomPricing'];
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          console.error(`❌ Failed to load ${names[index]}:`, result.reason);
+        } else {
+          console.log(`✅ ${names[index]} loaded`);
+        }
+      });
+
+      console.log('✅ All user data loaded');
+    } catch (error) {
+      console.error('Error loading user data:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [userId, supabase, fetchCustomPricing]);
+
+  useEffect(() => {
+    // Wait for router to be ready before using userId
+    if (!router.isReady) return;
+
+    if (!isAuthenticated || !currentUser) {
+      router.push('/login');
+      return;
+    }
+
+    if (currentUser.role !== 'admin') {
+      router.push('/dashboard/customer');
+      return;
+    }
+
+    if (userId) {
+      console.log('🔄 Loading user data for userId:', userId);
+      loadUserData();
+    }
+  }, [isAuthenticated, currentUser, userId, router.isReady, loadUserData, router]);
+
+  // Separate effect to reload data when tab changes
+  useEffect(() => {
+    if (activeTab === 'pricing' && userId && isAuthenticated) {
+      console.log('🔄 Pricing tab activated, refreshing pricing data...');
+      fetchCustomPricing();
+    }
+  }, [activeTab, userId, isAuthenticated, fetchCustomPricing]);
 
   const handleSaveCustomPricing = async () => {
     setSavingPricing(true);
@@ -1281,10 +1311,10 @@ export default function UserDetailPage() {
                         </div>
                         <div>
                           <h4 className="font-semibold text-gray-900 text-lg">
-                            {app['Job-Leads']?.jobTitle || 'Unknown Position'}
+                            {app['Job-Leads']?.jobtitle || 'Unknown Position'}
                           </h4>
                           <p className="text-sm text-gray-600">
-                            {app['Job-Leads']?.companyName || 'Unknown Company'}
+                            {app['Job-Leads']?.companyname || 'Unknown Company'}
                           </p>
                           <p className="text-xs text-gray-500 mt-1">
                             {app['Job-Leads']?.location || 'Location not specified'}

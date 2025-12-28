@@ -91,10 +91,13 @@ export default function ServicePage() {
   const [citySearchQuery, setCitySearchQuery] = useState('');
 
   useEffect(() => {
+    // Wait for router to be ready before checking auth
+    if (!router.isReady) return;
+
     if (!isAuthenticated || !user) {
       router.push('/login');
     }
-  }, [isAuthenticated, user, router]);
+  }, [isAuthenticated, user, router, router.isReady]);
 
   // Load Naukri city mapping
   useEffect(() => {
@@ -112,6 +115,9 @@ export default function ServicePage() {
 
   // Fetch job leads when on jobs service page
   useEffect(() => {
+    // Wait for router to be ready before using serviceId
+    if (!router.isReady) return;
+
     const fetchJobLeads = async () => {
       if (serviceId === 'jobs' && user?.email) {
         setLoadingJobs(true);
@@ -188,10 +194,16 @@ export default function ServicePage() {
 
   // Check Gmail connection status
   useEffect(() => {
+    // Wait for router to be ready before using serviceId
+    if (!router.isReady) return;
+
     const checkGmailStatus = async () => {
       if (serviceId === 'jobs' && user?.email) {
         try {
-          const response = await fetch(`/api/gmail/status?email=${encodeURIComponent(user.email)}`);
+          const response = await fetch(
+            `/api/gmail/status?email=${encodeURIComponent(user.email)}`
+          );
+
           const result = await response.json();
 
           if (result.success && result.connected && !result.isExpired) {
@@ -217,8 +229,10 @@ export default function ServicePage() {
                 type: 'success',
                 message: `Gmail connected successfully! (${result.gmailAddress})`
               });
-              // Clean URL
-              router.replace('/dashboard/services/jobs', undefined, { shallow: true });
+              // Clean URL without triggering re-render
+              const url = new URL(window.location.href);
+              url.searchParams.delete('gmail_connected');
+              window.history.replaceState({}, '', url.pathname);
             }
           } else if (result.connected && result.isExpired) {
             // Token exists but is expired - show as disconnected
@@ -240,7 +254,7 @@ export default function ServicePage() {
     };
 
     checkGmailStatus();
-  }, [serviceId, user?.email, router.query.gmail_connected]);
+  }, [serviceId, user?.email, router.isReady]);
 
   // Auto-disconnect Gmail after 5 minutes of inactivity
   useEffect(() => {
@@ -1750,14 +1764,6 @@ export default function ServicePage() {
                     {coverLetters.length === 0 && (
                       <p className="text-xs text-gray-500 mt-1">No cover letters uploaded yet</p>
                     )}
-                  </div>
-
-                  {/* Info Box */}
-                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                    <p className="text-sm text-blue-900">
-                      <strong>Note:</strong> This form includes all options for comprehensive job search. 
-                      Not all fields apply to every job platform, but filling them ensures the best results across all sources.
-                    </p>
                   </div>
                 </div>
 

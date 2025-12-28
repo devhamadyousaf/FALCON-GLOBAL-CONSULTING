@@ -13,33 +13,36 @@ export default function DashboardGuard({ children }) {
   const { canAccessDashboard, onboardingData, loading: onboardingLoading } = useOnboarding();
 
   useEffect(() => {
-    if (!authLoading) {
-      // Not authenticated - redirect to login
-      if (!isAuthenticated) {
-        router.push('/login');
-        return;
-      }
+    // Wait for auth to finish loading
+    if (authLoading) return;
 
-      // Admin users can always access dashboard
-      if (user?.role === 'admin') {
-        return;
-      }
+    // Not authenticated - redirect to login
+    if (!isAuthenticated) {
+      router.push('/login');
+      return;
+    }
 
-      // Check onboarding_complete from user profile (more reliable than onboarding context)
-      // If user.onboardingComplete is true, they can access dashboard
-      // This avoids issues with onboarding context database timeouts
-      if (user?.onboardingComplete === true) {
-        console.log('✅ User onboarding complete, allowing dashboard access');
-        return;
-      }
+    // Admin users can always access dashboard
+    if (user?.role === 'admin') {
+      return;
+    }
 
-      // Fallback: Check if onboarding is complete via context
-      // Only check if onboarding data has loaded (not still loading)
-      if (!onboardingLoading && !canAccessDashboard()) {
-        console.log('❌ Onboarding not complete, redirecting to onboarding');
-        router.push('/onboarding-new');
-        return;
-      }
+    // Check onboarding_complete from user profile (more reliable than onboarding context)
+    // If user.onboardingComplete is true, they can access dashboard
+    // This avoids issues with onboarding context database timeouts
+    if (user?.onboardingComplete === true) {
+      console.log('✅ User onboarding complete, allowing dashboard access');
+      return;
+    }
+
+    // Wait for onboarding context to finish loading before checking
+    if (onboardingLoading) return;
+
+    // Fallback: Check if onboarding is complete via context
+    if (!canAccessDashboard()) {
+      console.log('❌ Onboarding not complete, redirecting to onboarding');
+      router.push('/onboarding-new');
+      return;
     }
   }, [isAuthenticated, user, authLoading, canAccessDashboard, onboardingLoading, router]);
 
@@ -55,19 +58,14 @@ export default function DashboardGuard({ children }) {
     );
   }
 
-  // Don't render children until checks are complete
+  // Final access check before rendering
   // Allow access if user.onboardingComplete is true OR canAccessDashboard() returns true
   const hasAccess = user?.role === 'admin' || user?.onboardingComplete === true || canAccessDashboard();
-  
+
   if (!isAuthenticated || !hasAccess) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Redirecting...</p>
-        </div>
-      </div>
-    );
+    // Don't show another loading spinner - the redirect in useEffect will handle it
+    // Just return null to prevent flash of content
+    return null;
   }
 
   // Render protected content
