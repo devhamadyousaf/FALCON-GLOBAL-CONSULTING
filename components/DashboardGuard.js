@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
 import { useOnboarding } from '../context/OnboardingContext';
@@ -11,10 +11,35 @@ export default function DashboardGuard({ children }) {
   const router = useRouter();
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   const { canAccessDashboard, onboardingData, loading: onboardingLoading } = useOnboarding();
+  const [timedOut, setTimedOut] = useState(false);
+  const timeoutRef = useRef(null);
+
+  // Set a 15-second timeout to prevent infinite loading
+  useEffect(() => {
+    // Clear any existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    // If still loading after 15 seconds, force continue with what we have
+    if (authLoading || onboardingLoading) {
+      timeoutRef.current = setTimeout(() => {
+        console.warn('⚠️ DashboardGuard loading timeout - forcing access check');
+        setTimedOut(true);
+      }, 15000);
+    }
+
+    // Cleanup
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [authLoading, onboardingLoading]);
 
   useEffect(() => {
-    // Wait for auth to finish loading
-    if (authLoading) return;
+    // Wait for auth to finish loading (unless timed out)
+    if (authLoading && !timedOut) return;
 
     // Not authenticated - redirect to login
     if (!isAuthenticated) {
@@ -31,28 +56,27 @@ export default function DashboardGuard({ children }) {
     // If user.onboardingComplete is true, they can access dashboard
     // This avoids issues with onboarding context database timeouts
     if (user?.onboardingComplete === true) {
-      console.log('✅ User onboarding complete, allowing dashboard access');
       return;
     }
 
-    // Wait for onboarding context to finish loading before checking
-    if (onboardingLoading) return;
+    // Wait for onboarding context to finish loading before checking (unless timed out)
+    if (onboardingLoading && !timedOut) return;
 
     // Fallback: Check if onboarding is complete via context
     if (!canAccessDashboard()) {
-      console.log('❌ Onboarding not complete, redirecting to onboarding');
       router.push('/onboarding-new');
       return;
     }
-  }, [isAuthenticated, user, authLoading, canAccessDashboard, onboardingLoading, router]);
+  }, [isAuthenticated, user, authLoading, canAccessDashboard, onboardingLoading, router, timedOut]);
 
-  // Show loading state while checking auth or onboarding
-  if (authLoading || onboardingLoading) {
+  // Show loading state while checking auth or onboarding (unless timed out)
+  if ((authLoading || onboardingLoading) && !timedOut) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+          <p className="text-gray-600">Completing sign in...</p>
+          <p className="text-sm text-gray-500 mt-2">Please wait while we redirect you.</p>
         </div>
       </div>
     );

@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
+import { createTimeoutPromise, retryOperation } from '../../utils/asyncHelpers';
 import {
   Users,
   FileText,
@@ -25,17 +27,21 @@ import {
   Filter,
   Download,
   Plus,
-  Mail
+  Mail,
+  RefreshCw
 } from 'lucide-react';
 
 export default function AdminDashboard() {
   const router = useRouter();
   const { user, logout, isAuthenticated, supabase, loading: authLoading } = useAuth();
+  const { showToast } = useToast();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [searchQuery, setSearchQuery] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const loadingTimeoutRef = useRef(null);
   
   // Dynamic data states
   const [stats, setStats] = useState({
@@ -72,178 +78,185 @@ export default function AdminDashboard() {
   useEffect(() => {
     // Don't run if auth is still loading
     if (authLoading) {
-      console.log('⏳ Auth still loading, waiting...');
       return;
     }
 
     if (!isAuthenticated || !user) {
-      console.log('❌ Not authenticated, redirecting to login');
       router.push('/login');
       return;
     }
 
     if (user.role !== 'admin') {
-      console.log('❌ Not admin user, redirecting to customer dashboard');
       router.push('/dashboard/customer');
       return;
     }
 
     // Ensure supabase client is ready
     if (!supabase) {
-      console.warn('⚠️ Supabase client not ready yet, waiting...');
       return;
     }
 
-    // Load data when auth is ready and user is admin
-    console.log('✅ Auth ready, loading admin data...');
-    loadAdminData();
-  }, [isAuthenticated, user, router, authLoading, supabase]);
+    // Only load data on initial mount when all conditions are met
+    if (!dataInitialized && isAuthenticated && user?.role === 'admin' && supabase) {
+      loadAdminData();
+      setDataInitialized(true);
+    }
 
-  // Refresh data when returning to the page (when it becomes visible)
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      // Only refresh if page becomes visible (not hidden) and user is admin
-      if (!document.hidden && isAuthenticated && user?.role === 'admin' && router.pathname === '/dashboard/admin') {
-        // Only refresh if data hasn't been fetched in the last 30 seconds
-        const now = Date.now();
-        if (!lastDataFetch || now - lastDataFetch > 30000) {
-          console.log('🔄 Page visible again, refreshing data...');
-          loadAdminData();
-        } else {
-          console.log('⏭️ Data recently fetched, skipping refresh...');
-        }
+    // Cleanup timeout on unmount
+    return () => {
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, isAuthenticated, user?.role]);
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [isAuthenticated, user, lastDataFetch, router.pathname]);
+  // Auto-refresh disabled - manual refresh only
+  // useEffect(() => {
+  //   const handleVisibilityChange = () => {
+  //     if (!document.hidden && isAuthenticated && user?.role === 'admin' && router.pathname === '/dashboard/admin') {
+  //       const now = Date.now();
+  //       if (!lastDataFetch || now - lastDataFetch > 30000) {
+  //         loadAdminData();
+  //       }
+  //     }
+  //   };
+  //   document.addEventListener('visibilitychange', handleVisibilityChange);
+  //   return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  // }, [isAuthenticated, user, lastDataFetch, router.pathname]);
 
-  // Reload data when navigating back to this page
+  // Reload data only when navigating back from other routes
   useEffect(() => {
     const handleRouteChange = (url) => {
+      // Only reload if navigating TO admin dashboard from somewhere else
       if (url === '/dashboard/admin' && isAuthenticated && user?.role === 'admin') {
-        console.log('🔄 Navigated back to admin dashboard, refreshing data...');
-        setTimeout(() => loadAdminData(), 100); // Small delay to ensure page is ready
+        // Check if we're actually coming from a different page
+        const now = Date.now();
+        if (!lastDataFetch || now - lastDataFetch > 5000) {
+          setTimeout(() => loadAdminData(), 100);
+        }
       }
     };
 
     router.events?.on('routeChangeComplete', handleRouteChange);
     return () => router.events?.off('routeChangeComplete', handleRouteChange);
-  }, [isAuthenticated, user, router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, user?.role, router.events]);
 
   // Reload data when switching to specific tabs if data hasn't been loaded yet
   useEffect(() => {
     if (isAuthenticated && user?.role === 'admin' && supabase && !authLoading && !loading) {
       // Only reload if switching to a tab and the respective data is empty
       if (activeTab === 'users' && allUsers.length === 0) {
-        console.log('🔄 Loading users data...');
         fetchAllUsers();
       } else if (activeTab === 'applications' && allApplications.length === 0) {
-        console.log('🔄 Loading applications data...');
         fetchAllApplications();
       }
     }
   }, [activeTab]);
 
   const loadAdminData = async () => {
-    console.log('📊 Starting admin data load...');
+    // Clear any existing timeout
+    if (loadingTimeoutRef.current) {
+      clearTimeout(loadingTimeoutRef.current);
+    }
+
     setLoading(true);
+    setError(null);
 
     // Safety check - ensure supabase is initialized
     if (!supabase) {
-      console.error('❌ Supabase client not initialized');
       setLoading(false);
+      setError('Database connection not ready');
       return;
     }
 
+    // Safety timeout - force stop loading after 30 seconds
+    loadingTimeoutRef.current = setTimeout(() => {
+      setLoading(false);
+      showToast('Loading took too long. Please refresh the page.', 'error', 5000);
+    }, 30000);
+
     try {
-      // Wrap each fetch in a safe promise that never rejects
-      const safeFetch = (fetchFn, name) => {
-        return fetchFn().catch((error) => {
-          console.error(`❌ Error in ${name}:`, error.message || error);
-          return Promise.resolve(); // Always resolve to prevent rejection
-        });
-      };
+      // Wrap each fetch with timeout and retry
+      const names = ['Stats', 'RecentUsers', 'RecentApplications', 'AllUsers', 'AllApplications', 'Notifications', 'UserJobLeads'];
+      const fetchFunctions = [
+        fetchStats,
+        fetchRecentUsers,
+        fetchRecentApplications,
+        fetchAllUsers,
+        fetchAllApplications,
+        fetchNotifications,
+        fetchUserJobLeads
+      ];
 
-      // Just wait for all fetches to complete - no timeout race
-      // Promise.allSettled ensures we wait for all to finish regardless of success/failure
-      const results = await Promise.allSettled([
-        safeFetch(fetchStats, 'fetchStats'),
-        safeFetch(fetchRecentUsers, 'fetchRecentUsers'),
-        safeFetch(fetchRecentApplications, 'fetchRecentApplications'),
-        safeFetch(fetchAllUsers, 'fetchAllUsers'),
-        safeFetch(fetchAllApplications, 'fetchAllApplications'),
-        safeFetch(fetchNotifications, 'fetchNotifications'),
-        safeFetch(fetchUserJobLeads, 'fetchUserJobLeads')
-      ]);
+      const results = await Promise.allSettled(
+        fetchFunctions.map((fn, index) =>
+          Promise.race([
+            retryOperation(fn, 2, 1000),
+            createTimeoutPromise(15000, names[index])
+          ]).catch((error) => {
+            // Silently handle - errors already logged by retry mechanism
+            return null;
+          })
+        )
+      );
 
-      // Log any failures
-      if (Array.isArray(results) && results.length > 0) {
-        results.forEach((result, index) => {
-          const names = ['Stats', 'RecentUsers', 'RecentApplications', 'AllUsers', 'AllApplications', 'Notifications', 'UserJobLeads'];
-          if (result.status === 'rejected') {
-            console.error(`❌ Failed to load ${names[index]}:`, result.reason);
-          } else {
-            console.log(`✅ ${names[index]} loaded successfully`);
-          }
-        });
+      // Count failures silently
+      let failedCount = 0;
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          failedCount++;
+        }
+      });
+
+      if (failedCount > 0) {
+        showToast(`Loaded with ${failedCount} warning(s)`, 'warning', 3000);
       }
 
       // Update last fetch timestamp
       setLastDataFetch(Date.now());
-      console.log('✅ Admin data load complete');
     } catch (error) {
-      // Silently handle errors - don't show to user
       console.error('❌ Error loading admin data:', error.message || error);
+      setError(error.message || 'Failed to load data');
+      showToast('Error loading dashboard data', 'error');
     } finally {
+      // Clear timeout and stop loading
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
       setLoading(false);
     }
   };
 
   const fetchStats = async () => {
     try {
-      console.log('📊 Fetching stats...');
       // Total Users
-      const { count: totalUsers, error: usersError } = await supabase
+      const { count: totalUsers } = await supabase
         .from('profiles')
         .select('*', { count: 'exact', head: true });
 
-      if (usersError) {
-        console.error('Error counting users:', usersError);
-      }
-
       // Active Applications (users with onboarding complete)
-      const { count: activeApplications, error: activeError } = await supabase
+      const { count: activeApplications } = await supabase
         .from('profiles')
         .select('*', { count: 'exact', head: true })
         .eq('onboarding_complete', true);
 
-      if (activeError) {
-        console.error('Error counting active apps:', activeError);
-      }
-
       // Total Revenue (sum of completed payments)
-      const { data: payments, error: paymentsError } = await supabase
+      const { data: payments } = await supabase
         .from('payments')
         .select('amount')
         .eq('status', 'completed');
 
-      if (paymentsError) {
-        console.error('Error fetching payments:', paymentsError);
-      }
-
       const totalRevenue = payments?.reduce((sum, payment) => sum + Number(payment.amount || 0), 0) || 0;
 
       // Pending Reviews (users with onboarding not complete)
-      const { count: pendingReviews, error: pendingError } = await supabase
+      const { count: pendingReviews } = await supabase
         .from('profiles')
         .select('*', { count: 'exact', head: true })
         .eq('onboarding_complete', false);
-
-      if (pendingError) {
-        console.error('Error counting pending:', pendingError);
-      }
 
       const newStats = {
         totalUsers: totalUsers || 0,
@@ -252,10 +265,8 @@ export default function AdminDashboard() {
         pendingReviews: pendingReviews || 0
       };
 
-      console.log('📊 Stats fetched:', newStats);
       setStats(newStats);
     } catch (error) {
-      console.error('❌ Exception fetching stats:', error);
       // Set default values on error
       setStats({
         totalUsers: 0,
@@ -274,12 +285,7 @@ export default function AdminDashboard() {
         .order('created_at', { ascending: false })
         .limit(5);
 
-      if (error) {
-        console.error('Error fetching users:', error);
-        throw error;
-      }
-
-      console.log('Fetched users:', data); // Debug log
+      if (error) throw error;
 
       // Get application counts for each user
       const usersWithCounts = await Promise.all(
@@ -296,7 +302,6 @@ export default function AdminDashboard() {
         })
       );
 
-      console.log('Users with counts:', usersWithCounts); // Debug log
       setRecentUsers(usersWithCounts);
     } catch (error) {
       console.error('Error fetching recent users:', error);
@@ -333,12 +338,7 @@ export default function AdminDashboard() {
         .select('id, email, full_name, role, created_at, onboarding_complete')
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching all users:', error);
-        throw error;
-      }
-
-      console.log('Fetched all users:', data); // Debug log
+      if (error) throw error;
 
       // Get application counts for each user
       const usersWithCounts = await Promise.all(
@@ -355,7 +355,6 @@ export default function AdminDashboard() {
         })
       );
 
-      console.log('All users with counts:', usersWithCounts); // Debug log
       setAllUsers(usersWithCounts);
     } catch (error) {
       console.error('Error fetching all users:', error);
@@ -910,6 +909,27 @@ export default function AdminDashboard() {
 
       {/* Content wrapper */}
       <div className="relative z-10">
+      {/* Error Banner */}
+      {error && (
+        <div className="mx-6 mt-4 p-4 bg-red-50 border-2 border-red-200 rounded-xl flex items-start space-x-3">
+          <AlertCircle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <h3 className="text-sm font-semibold text-red-800 mb-1">Error Loading Dashboard</h3>
+            <p className="text-sm text-red-700">{error}</p>
+          </div>
+          <button
+            onClick={() => {
+              setError(null);
+              loadAdminData();
+            }}
+            className="px-3 py-1 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center space-x-1"
+          >
+            <RefreshCw className="w-4 h-4" />
+            <span>Retry</span>
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <header className="sticky top-0 z-30 pt-4 px-6">
         <div
@@ -972,6 +992,22 @@ export default function AdminDashboard() {
                   }}
                 />
               </div>
+              <button
+                onClick={loadAdminData}
+                className="p-2 rounded-lg transition-colors duration-200"
+                style={{ color: 'rgba(0, 50, 83, 0.8)' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(0, 50, 83, 0.1)';
+                  e.currentTarget.style.color = 'rgba(0, 50, 83, 1)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.color = 'rgba(0, 50, 83, 0.8)';
+                }}
+                title="Refresh data"
+              >
+                <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+              </button>
               <button
                 onClick={() => setShowNotifications(!showNotifications)}
                 className="p-2 rounded-lg transition-colors duration-200 relative"

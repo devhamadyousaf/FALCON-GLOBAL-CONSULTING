@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../context/AuthContext';
 import DashboardGuard from '../../components/DashboardGuard';
 import { getUserDocuments, uploadFile, listUserFiles, deleteFile, uploadDocument, STORAGE_BUCKETS, DOCUMENT_TYPES } from '../../lib/storage';
 import * as gtag from '../../lib/gtag';
+import { createTimeoutPromise, retryOperation } from '../../utils/asyncHelpers';
+import { useToast } from '../../context/ToastContext';
 import {
   Briefcase,
   FileText,
@@ -31,6 +33,7 @@ import {
 function CustomerDashboard() {
   const router = useRouter();
   const { user, logout, isAuthenticated, loading: authLoading } = useAuth();
+  const { showToast } = useToast();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [documents, setDocuments] = useState([]);
@@ -52,66 +55,161 @@ function CustomerDashboard() {
   });
   const [uploadingDocuments, setUploadingDocuments] = useState(false);
 
+  // Timeout refs for cleanup
+  const documentTimeoutRef = useRef(null);
+  const cvTimeoutRef = useRef(null);
+  const coverLetterTimeoutRef = useRef(null);
+
   // Gmail connection is now handled via database
   // Tokens are stored in gmail_accounts table and fetched via /api/gmail/status
   // No longer storing tokens in sessionStorage from URL parameters
 
-  // Fetch user documents
+  // Fetch user documents with timeout protection
   useEffect(() => {
     const fetchDocuments = async () => {
       if (authLoading || !user?.id) return;
-      
-      setLoadingDocuments(true);
-      const result = await getUserDocuments(user.id);
-      if (result.success) {
-        console.log('📄 User documents loaded:', result.documents);
-        setDocuments(result.documents);
-      } else {
-        console.error('❌ Error loading documents:', result.error);
+
+      // Clear existing timeout
+      if (documentTimeoutRef.current) {
+        clearTimeout(documentTimeoutRef.current);
       }
-      setLoadingDocuments(false);
+
+      setLoadingDocuments(true);
+
+      // 10-second safety timeout
+      documentTimeoutRef.current = setTimeout(() => {
+        setLoadingDocuments(false);
+        showToast('Loading documents took too long. Please refresh.', 'warning', 5000);
+      }, 10000);
+
+      try {
+        const result = await Promise.race([
+          retryOperation(async () => await getUserDocuments(user.id), 2, 500),
+          createTimeoutPromise(8000, 'Fetch documents')
+        ]);
+
+        if (result.success) {
+          setDocuments(result.documents);
+        } else {
+          showToast('Failed to load documents: ' + result.error, 'error');
+        }
+      } catch (error) {
+        showToast('Error loading documents: ' + error.message, 'error');
+      } finally {
+        if (documentTimeoutRef.current) {
+          clearTimeout(documentTimeoutRef.current);
+        }
+        setLoadingDocuments(false);
+      }
     };
 
     fetchDocuments();
-  }, [user?.id, authLoading]);
 
-  // Fetch CVs
+    // Cleanup on unmount
+    return () => {
+      if (documentTimeoutRef.current) {
+        clearTimeout(documentTimeoutRef.current);
+      }
+    };
+  }, [user?.id, authLoading, showToast]);
+
+  // Fetch CVs with timeout protection
   useEffect(() => {
     const fetchCvs = async () => {
       if (authLoading || !user?.id) return;
-      
-      setLoadingCvs(true);
-      const result = await listUserFiles(user.id, 'cvs');
-      if (result.success) {
-        console.log('📄 CVs loaded:', result.files);
-        setCvs(result.files || []);
-      } else {
-        console.error('❌ Error loading CVs:', result.error);
+
+      // Clear existing timeout
+      if (cvTimeoutRef.current) {
+        clearTimeout(cvTimeoutRef.current);
       }
-      setLoadingCvs(false);
+
+      setLoadingCvs(true);
+
+      // 10-second safety timeout
+      cvTimeoutRef.current = setTimeout(() => {
+        setLoadingCvs(false);
+        showToast('Loading CVs took too long. Please refresh.', 'warning', 5000);
+      }, 10000);
+
+      try {
+        const result = await Promise.race([
+          retryOperation(async () => await listUserFiles(user.id, 'cvs'), 2, 500),
+          createTimeoutPromise(8000, 'Fetch CVs')
+        ]);
+
+        if (result.success) {
+          setCvs(result.files || []);
+        } else {
+          showToast('Failed to load CVs: ' + result.error, 'error');
+        }
+      } catch (error) {
+        showToast('Error loading CVs: ' + error.message, 'error');
+      } finally {
+        if (cvTimeoutRef.current) {
+          clearTimeout(cvTimeoutRef.current);
+        }
+        setLoadingCvs(false);
+      }
     };
 
     fetchCvs();
-  }, [user?.id, authLoading]);
 
-  // Fetch Cover Letters
+    // Cleanup on unmount
+    return () => {
+      if (cvTimeoutRef.current) {
+        clearTimeout(cvTimeoutRef.current);
+      }
+    };
+  }, [user?.id, authLoading, showToast]);
+
+  // Fetch Cover Letters with timeout protection
   useEffect(() => {
     const fetchCoverLetters = async () => {
       if (authLoading || !user?.id) return;
-      
-      setLoadingCoverLetters(true);
-      const result = await listUserFiles(user.id, 'cover-letters');
-      if (result.success) {
-        console.log('📄 Cover letters loaded:', result.files);
-        setCoverLetters(result.files || []);
-      } else {
-        console.error('❌ Error loading cover letters:', result.error);
+
+      // Clear existing timeout
+      if (coverLetterTimeoutRef.current) {
+        clearTimeout(coverLetterTimeoutRef.current);
       }
-      setLoadingCoverLetters(false);
+
+      setLoadingCoverLetters(true);
+
+      // 10-second safety timeout
+      coverLetterTimeoutRef.current = setTimeout(() => {
+        setLoadingCoverLetters(false);
+        showToast('Loading cover letters took too long. Please refresh.', 'warning', 5000);
+      }, 10000);
+
+      try {
+        const result = await Promise.race([
+          retryOperation(async () => await listUserFiles(user.id, 'cover-letters'), 2, 500),
+          createTimeoutPromise(8000, 'Fetch cover letters')
+        ]);
+
+        if (result.success) {
+          setCoverLetters(result.files || []);
+        } else {
+          showToast('Failed to load cover letters: ' + result.error, 'error');
+        }
+      } catch (error) {
+        showToast('Error loading cover letters: ' + error.message, 'error');
+      } finally {
+        if (coverLetterTimeoutRef.current) {
+          clearTimeout(coverLetterTimeoutRef.current);
+        }
+        setLoadingCoverLetters(false);
+      }
     };
 
     fetchCoverLetters();
-  }, [user?.id, authLoading]);
+
+    // Cleanup on unmount
+    return () => {
+      if (coverLetterTimeoutRef.current) {
+        clearTimeout(coverLetterTimeoutRef.current);
+      }
+    };
+  }, [user?.id, authLoading, showToast]);
 
   const handleFileUpload = async () => {
     if (!selectedFile) {
@@ -216,13 +314,23 @@ function CustomerDashboard() {
     setSelectedFile(null);
   };
 
+  // Simplified redirect logic - prevent loops
   useEffect(() => {
+    // Wait for auth to finish loading
+    if (authLoading) return;
+
+    // Only redirect if not authenticated
     if (!isAuthenticated || !user) {
       router.push('/login');
-    } else if (user.role === 'admin') {
-      router.push('/dashboard/admin');
+      return;
     }
-  }, [isAuthenticated, user, router]);
+
+    // Redirect admin users to admin dashboard
+    if (user.role === 'admin') {
+      router.push('/dashboard/admin');
+      return;
+    }
+  }, [isAuthenticated, user, authLoading, router]);
 
   if (!user) return null;
 

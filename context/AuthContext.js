@@ -47,13 +47,21 @@ export function AuthProvider({ children }) {
 
       // Skip processing if this is the initial load event
       if (isInitialLoad && event === 'INITIAL_SESSION') {
-        console.log('⏭️ Skipping initial session event (already processed)');
         return;
       }
 
-      if (session?.user) {
-        await loadUserProfile(session.user);
-      } else {
+      // Don't reload profile on token refresh - it just updates the JWT token
+      // This prevents interrupting ongoing operations
+      if (event === 'TOKEN_REFRESHED') {
+        return;
+      }
+
+      // Only reload profile for actual auth state changes
+      if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+        if (session?.user) {
+          await loadUserProfile(session.user);
+        }
+      } else if (event === 'SIGNED_OUT') {
         setUser(null);
       }
 

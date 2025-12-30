@@ -1,7 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../../../context/AuthContext';
+import { useToast } from '../../../../context/ToastContext';
 import { saveCustomPricing, deleteCustomPricing, AVAILABLE_PLANS } from '../../../../lib/custom-pricing';
+import { createTimeoutPromise, retryOperation } from '../../../../utils/asyncHelpers';
 import {
   ArrowLeft,
   User,
@@ -23,13 +25,15 @@ import {
   XCircle,
   Plus,
   Save,
-  X as XIcon
+  X as XIcon,
+  RefreshCw
 } from 'lucide-react';
 
 export default function UserDetailPage() {
   const router = useRouter();
   const { userId } = router.query;
   const { user: currentUser, isAuthenticated, supabase } = useAuth();
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState(null);
   const [userApplications, setUserApplications] = useState([]);
@@ -39,6 +43,8 @@ export default function UserDetailPage() {
   const [activeTab, setActiveTab] = useState('overview');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState(null);
+  const loadingTimeoutRef = useRef(null);
 
   // Custom Pricing states - OLD schema: one row with all plan prices
   const [customPricing, setCustomPricing] = useState(null);
@@ -60,154 +66,188 @@ export default function UserDetailPage() {
 
     setLoadingPricing(true);
     try {
-      const { data, error } = await supabase
-        .from('custom_pricing')
-        .select('*, created_by_profile:profiles!custom_pricing_created_by_fkey(full_name, email)')
-        .eq('user_id', userId)
-        .single();
+      const fetchOperation = async () => {
+        const { data, error } = await supabase
+          .from('custom_pricing')
+          .select('*, created_by_profile:profiles!custom_pricing_created_by_fkey(full_name, email)')
+          .eq('user_id', userId)
+          .single();
 
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching custom pricing:', error);
-        setCustomPricing(null);
-      } else {
-        setCustomPricing(data || null);
-        console.log('✅ Custom pricing loaded:', data);
-      }
+        if (error && error.code !== 'PGRST116') {
+          throw error;
+        }
+        return data;
+      };
+
+      // Add timeout protection
+      const data = await Promise.race([
+        retryOperation(fetchOperation, 2, 500),
+        createTimeoutPromise(15000, 'Fetch custom pricing')
+      ]);
+
+      setCustomPricing(data || null);
     } catch (error) {
-      console.error('Error fetching custom pricing:', error);
       setCustomPricing(null);
+      if (!error.message?.includes('PGRST116')) {
+        showToast('Failed to load custom pricing', 'error');
+      }
     } finally {
       setLoadingPricing(false);
     }
-  }, [userId, supabase]);
+  }, [userId, supabase, showToast]);
 
   const loadUserData = useCallback(async () => {
     if (!userId || !supabase) return;
 
-    const fetchUserProfile = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .single();
+    // Clear any existing timeout
+    if (loadingTimeoutRef.current) {
+      clearTimeout(loadingTimeoutRef.current);
+    }
 
-        if (error) throw error;
-        setUserData(data);
-      } catch (error) {
-        console.error('Error fetching user profile:', error);
-        throw error;
-      }
+    const fetchUserProfile = async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) throw error;
+      setUserData(data);
+      return data;
     };
 
     const fetchUserApplications = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('job_applications')
-          .select(`
-            id,
-            status,
-            applied_at,
-            updated_at,
-            Job-Leads!inner(jobtitle, companyname, location)
-          `)
-          .eq('user_id', userId)
-          .order('applied_at', { ascending: false });
+      const { data, error } = await supabase
+        .from('job_applications')
+        .select(`
+          id,
+          status,
+          applied_at,
+          updated_at,
+          Job-Leads!inner(jobtitle, companyname, location)
+        `)
+        .eq('user_id', userId)
+        .order('applied_at', { ascending: false });
 
-        if (error) throw error;
-        setUserApplications(data || []);
-      } catch (error) {
-        console.error('Error fetching user applications:', error);
-        throw error;
-      }
+      if (error) throw error;
+      setUserApplications(data || []);
+      return data;
     };
 
     const fetchUserDocuments = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('documents')
-          .select('*')
-          .eq('user_id', userId)
-          .order('uploaded_at', { ascending: false });
+      const { data, error } = await supabase
+        .from('documents')
+        .select('*')
+        .eq('user_id', userId)
+        .order('uploaded_at', { ascending: false });
 
-        if (error) throw error;
-        setUserDocuments(data || []);
-      } catch (error) {
-        console.error('Error fetching user documents:', error);
-        throw error;
-      }
+      if (error) throw error;
+      setUserDocuments(data || []);
+      return data;
     };
 
     const fetchUserPayments = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('payments')
-          .select('*')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false });
+      const { data, error } = await supabase
+        .from('payments')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
 
-        if (error) throw error;
-        setUserPayments(data || []);
-      } catch (error) {
-        console.error('Error fetching user payments:', error);
-        throw error;
-      }
+      if (error) throw error;
+      setUserPayments(data || []);
+      return data;
     };
 
     const fetchOnboardingData = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('onboarding_data')
-          .select('*')
-          .eq('user_id', userId)
-          .single();
+      const { data, error } = await supabase
+        .from('onboarding_data')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
 
-        if (error) {
-          // PGRST116 means no rows found - this is expected if user hasn't started onboarding
-          if (error.code === 'PGRST116') {
-            console.log('ℹ️ No onboarding data found for this user');
-            setOnboardingData(null);
-            return;
-          }
-          console.error('Error fetching onboarding data:', error);
-          throw error;
+      if (error) {
+        // PGRST116 means no rows found - this is expected if user hasn't started onboarding
+        if (error.code === 'PGRST116') {
+          setOnboardingData(null);
+          return null;
         }
-        setOnboardingData(data);
-      } catch (error) {
-        console.error('Error fetching onboarding data:', error);
         throw error;
       }
+      setOnboardingData(data);
+      return data;
     };
 
     setLoading(true);
+    setError(null);
+
+    // Safety timeout - force stop loading after 30 seconds
+    loadingTimeoutRef.current = setTimeout(() => {
+      setLoading(false);
+      showToast('Loading took too long. Please refresh the page.', 'error', 5000);
+    }, 30000);
+
     try {
-      console.log('📊 Starting to load all user data...');
-      const results = await Promise.allSettled([
-        fetchUserProfile(),
-        fetchUserApplications(),
-        fetchUserDocuments(),
-        fetchUserPayments(),
-        fetchOnboardingData(),
+      // Use Promise.race to add timeout to the entire operation
+      const loadPromise = Promise.allSettled([
+        Promise.race([
+          retryOperation(fetchUserProfile, 2, 500),
+          createTimeoutPromise(10000, 'User profile')
+        ]),
+        Promise.race([
+          retryOperation(fetchUserApplications, 2, 500),
+          createTimeoutPromise(10000, 'Applications')
+        ]),
+        Promise.race([
+          retryOperation(fetchUserDocuments, 2, 500),
+          createTimeoutPromise(10000, 'Documents')
+        ]),
+        Promise.race([
+          retryOperation(fetchUserPayments, 2, 500),
+          createTimeoutPromise(10000, 'Payments')
+        ]),
+        Promise.race([
+          retryOperation(fetchOnboardingData, 2, 500),
+          createTimeoutPromise(10000, 'Onboarding data')
+        ]),
         fetchCustomPricing()
       ]);
 
-      // Log results
+      const results = await loadPromise;
+
+      // Log results and check for critical failures
       const names = ['Profile', 'Applications', 'Documents', 'Payments', 'Onboarding', 'CustomPricing'];
+      let failedCount = 0;
+      let criticalFailed = false;
+
       results.forEach((result, index) => {
         if (result.status === 'rejected') {
-          console.error(`❌ Failed to load ${names[index]}:`, result.reason);
-        } else {
-          console.log(`✅ ${names[index]} loaded`);
+          failedCount++;
+
+          // Profile is critical
+          if (index === 0) {
+            criticalFailed = true;
+            setError(`Failed to load user profile: ${result.reason.message}`);
+          }
         }
       });
 
-      console.log('✅ All user data loaded');
+      if (criticalFailed) {
+        showToast('Failed to load user profile. Please try again.', 'error');
+      } else if (failedCount > 0) {
+        showToast(`Loaded user data with ${failedCount} warning(s)`, 'warning', 4000);
+      }
     } catch (error) {
-      console.error('Error loading user data:', error);
+      setError(error.message);
+      showToast('Error loading user data', 'error');
     } finally {
+      // Clear timeout and stop loading
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
       setLoading(false);
     }
-  }, [userId, supabase, fetchCustomPricing]);
+  }, [userId, supabase, fetchCustomPricing, showToast]);
 
   useEffect(() => {
     // Wait for router to be ready before using userId
@@ -224,21 +264,43 @@ export default function UserDetailPage() {
     }
 
     if (userId) {
-      console.log('🔄 Loading user data for userId:', userId);
       loadUserData();
     }
+
+    // Cleanup timeout on unmount
+    return () => {
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
+    };
   }, [isAuthenticated, currentUser, userId, router.isReady, loadUserData, router]);
 
   // Separate effect to reload data when tab changes
   useEffect(() => {
     if (activeTab === 'pricing' && userId && isAuthenticated) {
-      console.log('🔄 Pricing tab activated, refreshing pricing data...');
       fetchCustomPricing();
     }
   }, [activeTab, userId, isAuthenticated, fetchCustomPricing]);
 
   const handleSaveCustomPricing = async () => {
     setSavingPricing(true);
+
+    // Optimistically update the UI
+    const optimisticData = {
+      silver_price: pricingForm.silverPrice ? parseFloat(pricingForm.silverPrice) : null,
+      gold_price: pricingForm.goldPrice ? parseFloat(pricingForm.goldPrice) : null,
+      diamond_price: pricingForm.diamondPrice ? parseFloat(pricingForm.diamondPrice) : null,
+      diamond_plus_price: pricingForm.diamondPlusPrice ? parseFloat(pricingForm.diamondPlusPrice) : null,
+      currency: pricingForm.currency,
+      notes: pricingForm.notes,
+      updated_at: new Date().toISOString()
+    };
+
+    const previousPricing = customPricing;
+    setCustomPricing(optimisticData);
+    setShowPricingModal(false);
+
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
@@ -247,20 +309,30 @@ export default function UserDetailPage() {
         throw new Error('No authentication token');
       }
 
-      const result = await saveCustomPricing({
-        userId,
-        silverPrice: pricingForm.silverPrice ? parseFloat(pricingForm.silverPrice) : undefined,
-        goldPrice: pricingForm.goldPrice ? parseFloat(pricingForm.goldPrice) : undefined,
-        diamondPrice: pricingForm.diamondPrice ? parseFloat(pricingForm.diamondPrice) : undefined,
-        diamondPlusPrice: pricingForm.diamondPlusPrice ? parseFloat(pricingForm.diamondPlusPrice) : undefined,
-        currency: pricingForm.currency,
-        notes: pricingForm.notes,
-        token
-      });
+      const saveOperation = async () => {
+        return await saveCustomPricing({
+          userId,
+          silverPrice: pricingForm.silverPrice ? parseFloat(pricingForm.silverPrice) : undefined,
+          goldPrice: pricingForm.goldPrice ? parseFloat(pricingForm.goldPrice) : undefined,
+          diamondPrice: pricingForm.diamondPrice ? parseFloat(pricingForm.diamondPrice) : undefined,
+          diamondPlusPrice: pricingForm.diamondPlusPrice ? parseFloat(pricingForm.diamondPlusPrice) : undefined,
+          currency: pricingForm.currency,
+          notes: pricingForm.notes,
+          token
+        });
+      };
+
+      // Add retry and timeout
+      const result = await Promise.race([
+        retryOperation(saveOperation, 2, 1000),
+        createTimeoutPromise(15000, 'Save custom pricing')
+      ]);
 
       if (result.success) {
-        alert(customPricing ? 'Custom pricing updated successfully!' : 'Custom pricing created successfully!');
-        setShowPricingModal(false);
+        showToast(
+          previousPricing ? 'Custom pricing updated successfully!' : 'Custom pricing created successfully!',
+          'success'
+        );
         setPricingForm({
           silverPrice: '',
           goldPrice: '',
@@ -269,13 +341,16 @@ export default function UserDetailPage() {
           currency: 'USD',
           notes: ''
         });
+        // Refresh to get the actual data from server
         await fetchCustomPricing();
       } else {
         throw new Error(result.error || 'Failed to save pricing');
       }
     } catch (error) {
-      console.error('Error saving custom pricing:', error);
-      alert('Error saving custom pricing: ' + error.message);
+      // Revert optimistic update on error
+      setCustomPricing(previousPricing);
+      setShowPricingModal(true);
+      showToast('Error saving custom pricing: ' + error.message, 'error');
     } finally {
       setSavingPricing(false);
     }
@@ -294,17 +369,22 @@ export default function UserDetailPage() {
         throw new Error('No authentication token');
       }
 
-      const result = await deleteCustomPricing(userId, token);
+      const deleteOperation = async () => deleteCustomPricing(userId, token);
+
+      // Add retry and timeout
+      const result = await Promise.race([
+        retryOperation(deleteOperation, 2, 1000),
+        createTimeoutPromise(15000, 'Delete custom pricing')
+      ]);
 
       if (result.success) {
-        alert('Custom pricing deleted successfully!');
+        showToast('Custom pricing deleted successfully!', 'success');
         await fetchCustomPricing();
       } else {
         throw new Error(result.error || 'Failed to delete pricing');
       }
     } catch (error) {
-      console.error('Error deleting custom pricing:', error);
-      alert('Error deleting custom pricing: ' + error.message);
+      showToast('Error deleting custom pricing: ' + error.message, 'error');
     }
   };
 
@@ -378,69 +458,75 @@ export default function UserDetailPage() {
 
   const handleDeleteUser = async () => {
     if (!userId) return;
-    
+
     setDeleting(true);
     try {
-      // Delete user's onboarding data
-      await supabase
-        .from('onboarding_data')
-        .delete()
-        .eq('user_id', userId);
+      const deleteUserOperation = async () => {
+        // Delete user's onboarding data
+        await supabase
+          .from('onboarding_data')
+          .delete()
+          .eq('user_id', userId);
 
-      // Delete user's job applications
-      await supabase
-        .from('job_applications')
-        .delete()
-        .eq('user_id', userId);
+        // Delete user's job applications
+        await supabase
+          .from('job_applications')
+          .delete()
+          .eq('user_id', userId);
 
-      // Delete user's documents
-      await supabase
-        .from('documents')
-        .delete()
-        .eq('user_id', userId);
+        // Delete user's documents
+        await supabase
+          .from('documents')
+          .delete()
+          .eq('user_id', userId);
 
-      // Delete user's payments
-      await supabase
-        .from('payments')
-        .delete()
-        .eq('user_id', userId);
+        // Delete user's payments
+        await supabase
+          .from('payments')
+          .delete()
+          .eq('user_id', userId);
 
-      // Delete user's notifications
-      await supabase
-        .from('notifications')
-        .delete()
-        .eq('user_id', userId);
+        // Delete user's notifications
+        await supabase
+          .from('notifications')
+          .delete()
+          .eq('user_id', userId);
 
-      // Delete user profile
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', userId);
+        // Delete user profile
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .delete()
+          .eq('id', userId);
 
-      if (profileError) {
-        console.error('Error deleting profile:', profileError);
-        alert('Error deleting user profile: ' + profileError.message);
-        setDeleting(false);
-        return;
-      }
+        if (profileError) {
+          throw new Error('Error deleting user profile: ' + profileError.message);
+        }
 
-      // Delete user from auth (requires admin privileges or service role key)
-      // Note: This requires the Supabase Admin API
-      // For now, we'll just delete the profile
-      
-      alert('User deleted successfully!');
+        return true;
+      };
+
+      // Add retry and timeout
+      await Promise.race([
+        retryOperation(deleteUserOperation, 2, 1000),
+        createTimeoutPromise(20000, 'Delete user')
+      ]);
+
+      showToast('User deleted successfully!', 'success');
       router.push('/dashboard/admin');
     } catch (error) {
-      console.error('Error deleting user:', error);
-      alert('Error deleting user: ' + error.message);
-    } finally {
+      showToast('Error deleting user: ' + error.message, 'error');
       setDeleting(false);
+    } finally {
       setShowDeleteModal(false);
     }
   };
 
   // Update User Onboarding Status
   const handleUpdateUserStatus = async (onboardingComplete) => {
+    // Optimistically update the UI
+    const previousUserData = userData;
+    setUserData({ ...userData, onboarding_complete: onboardingComplete });
+
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
@@ -449,31 +535,45 @@ export default function UserDetailPage() {
         throw new Error('No authentication token');
       }
 
-      const response = await fetch('/api/admin/update-user-status', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          userId,
-          onboardingComplete
-        })
-      });
+      const updateOperation = async () => {
+        const response = await fetch('/api/admin/update-user-status', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            userId,
+            onboardingComplete
+          })
+        });
 
-      const result = await response.json();
+        const result = await response.json();
 
-      if (result.success) {
-        alert(`User onboarding status updated to ${onboardingComplete ? 'Complete' : 'Incomplete'}!`);
-        // Reload user data to reflect changes
-        await loadUserData();
-      } else {
-        console.error('Error updating user status:', result.error);
-        alert('Error updating user status');
-      }
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to update user status');
+        }
+
+        return result;
+      };
+
+      // Add retry and timeout
+      await Promise.race([
+        retryOperation(updateOperation, 2, 1000),
+        createTimeoutPromise(15000, 'Update user status')
+      ]);
+
+      showToast(
+        `User onboarding status updated to ${onboardingComplete ? 'Complete' : 'Incomplete'}!`,
+        'success'
+      );
+
+      // Reload user data to reflect changes
+      await loadUserData();
     } catch (error) {
-      console.error('Error updating user status:', error);
-      alert('Error updating user status: ' + error.message);
+      // Revert optimistic update on error
+      setUserData(previousUserData);
+      showToast('Error updating user status: ' + error.message, 'error');
     }
   };
 
@@ -481,10 +581,17 @@ export default function UserDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center p-8">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-          <p className="text-gray-600">Loading user details...</p>
+          <p className="text-gray-600 mb-4">Loading user details...</p>
+          <button
+            onClick={loadUserData}
+            className="px-4 py-2 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors flex items-center space-x-2 mx-auto"
+          >
+            <RefreshCw className="w-4 h-4" />
+            <span>Cancel & Retry</span>
+          </button>
         </div>
       </div>
     );
@@ -528,6 +635,27 @@ export default function UserDetailPage() {
 
       {/* Content */}
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Error Banner */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border-2 border-red-200 rounded-xl flex items-start space-x-3">
+            <AlertCircle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-red-800 mb-1">Error Loading Data</h3>
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+            <button
+              onClick={() => {
+                setError(null);
+                loadUserData();
+              }}
+              className="px-3 py-1 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center space-x-1"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span>Retry</span>
+            </button>
+          </div>
+        )}
+
         {/* Back Button */}
         <button
           onClick={() => router.push('/dashboard/admin')}

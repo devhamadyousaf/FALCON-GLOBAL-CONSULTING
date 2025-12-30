@@ -59,7 +59,7 @@ function AppInner({ Component, pageProps }) {
   return (
     <>
       {/* Show global page loader during route changes */}
-      {loading && <PageLoader />}
+      {/* {loading && <PageLoader />} */}
       <Component {...pageProps} />
     </>
   );
