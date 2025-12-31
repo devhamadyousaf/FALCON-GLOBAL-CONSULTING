@@ -1508,21 +1508,22 @@ export default function ServicePage() {
                 </p>
                 {serviceId === 'jobs' && (
                   <div className="flex flex-col items-center gap-4">
-                    {activeCampaign && (
+                    {campaigns.length > 0 && (
                       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-2">
-                        <p className="text-sm font-semibold text-blue-900 mb-1">Active Campaign Running</p>
-                        <p className="text-xs text-blue-700">{activeCampaign.title}</p>
-                        <p className="text-xs text-blue-600 mt-1">Status: {activeCampaign.status}</p>
+                        <p className="text-sm font-semibold text-blue-900 mb-1">
+                          {campaigns.filter(c => c.status === 'pending' || c.status === 'processing').length} Active Campaign(s)
+                        </p>
+                        <p className="text-xs text-blue-600 mt-1">You can create multiple campaigns</p>
                       </div>
                     )}
                     <button
                       onClick={handleNewCampaignClick}
-                      disabled={loadingCampaign || activeCampaign}
+                      disabled={loadingCampaign}
                       className="px-8 py-4 rounded-xl font-semibold text-white shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                       style={{ backgroundColor: 'rgba(187, 40, 44, 1)' }}
-                      title={activeCampaign ? 'Please wait for current campaign to complete' : 'Create a new campaign'}
+                      title="Create a new campaign"
                     >
-                      {loadingCampaign ? 'Loading...' : activeCampaign ? 'Campaign Active' : 'Create Campaign'}
+                      {loadingCampaign ? 'Loading...' : 'Create Campaign'}
                     </button>
                   </div>
                 )}

@@ -1,7 +1,7 @@
 import React from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { CheckCircle, Home } from 'lucide-react';
+import { CheckCircle, Home, Phone } from 'lucide-react';
 
 /**
  * Thank You Page - After Form Submission
@@ -65,6 +65,18 @@ export default function ThankYouPage() {
                   </div>
                 </li>
               </ul>
+
+              {/* Contact Information */}
+              <div className="mt-6 pt-6 border-t border-blue-200">
+                <p className="text-gray-800 font-medium mb-2">You can also reach us directly at:</p>
+                <a
+                  href="tel:+14708099619"
+                  className="text-[#1e3a8a] font-semibold text-lg hover:underline inline-flex items-center"
+                >
+                  <Phone className="w-5 h-5 mr-2" />
+                  +1 (470) 809-9619
+                </a>
+              </div>
             </div>
 
             {/* CTA Button */}
