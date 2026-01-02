@@ -1,6 +1,37 @@
 import { X, CheckCircle, AlertCircle } from 'lucide-react';
 
-export default function Modal({ isOpen, onClose, title, message, type = 'info', onConfirm, confirmText = 'OK', showCancel = false }) {
+export default function Modal({ isOpen, onClose, title, message, type = 'info', onConfirm, confirmText = 'OK', showCancel = false, children }) {
+  if (!isOpen && !children) return null;
+  
+  // If children are provided, render a simple wrapper modal
+  if (children) {
+    return (
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+        {/* Backdrop */}
+        <div
+          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          onClick={onClose}
+        ></div>
+
+        {/* Modal */}
+        <div
+          className="relative bg-white rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Close button */}
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100 transition-all z-10"
+          >
+            <X className="w-5 h-5 text-gray-600" />
+          </button>
+          
+          {children}
+        </div>
+      </div>
+    );
+  }
+  
   if (!isOpen) return null;
 
   const getIcon = () => {

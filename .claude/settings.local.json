@@ -26,7 +26,8 @@
       "Bash(then echo \"public/lib exists\")",
       "Bash(else mkdir -p public/lib)",
       "Bash(fi)",
-      "Bash(wait)"
+      "Bash(wait)",
+      "Bash(dir /s /b \"e:\\\\FALCON-GLOBAL-CONSULTING\\\\*.sql\")"
     ],
     "deny": [],
     "ask": []

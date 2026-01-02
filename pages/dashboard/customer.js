@@ -1,33 +1,26 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../context/AuthContext';
 import DashboardGuard from '../../components/DashboardGuard';
+import CoverLetterTemplates from '../../components/CoverLetterTemplates';
 import { getUserDocuments, uploadFile, listUserFiles, deleteFile, uploadDocument, STORAGE_BUCKETS, DOCUMENT_TYPES } from '../../lib/storage';
 import * as gtag from '../../lib/gtag';
-import { createTimeoutPromise, retryOperation } from '../../utils/asyncHelpers';
 import { useToast } from '../../context/ToastContext';
+import { supabase } from '../../lib/supabase';
 import {
   Briefcase,
   FileText,
-  Home,
-  Plane,
-  Car,
-  Building2,
-  Wifi,
-  Smartphone,
-  Zap,
   User,
   Upload,
   LogOut,
   Menu,
   X,
-  Settings,
   ChevronRight,
   CheckCircle,
-  Clock,
   AlertCircle,
   Download,
-  Eye
+  Eye,
+  Lock
 } from 'lucide-react';
 
 function CustomerDashboard() {
@@ -35,7 +28,6 @@ function CustomerDashboard() {
   const { user, logout, isAuthenticated, loading: authLoading } = useAuth();
   const { showToast } = useToast();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [documents, setDocuments] = useState([]);
   const [loadingDocuments, setLoadingDocuments] = useState(true);
   const [cvs, setCvs] = useState([]);
@@ -54,162 +46,182 @@ function CustomerDashboard() {
     jobOffer: null
   });
   const [uploadingDocuments, setUploadingDocuments] = useState(false);
-
-  // Timeout refs for cleanup
-  const documentTimeoutRef = useRef(null);
-  const cvTimeoutRef = useRef(null);
-  const coverLetterTimeoutRef = useRef(null);
+  const [userPlan, setUserPlan] = useState(null);
+  const [loadingPlan, setLoadingPlan] = useState(true);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Gmail connection is now handled via database
   // Tokens are stored in gmail_accounts table and fetched via /api/gmail/status
   // No longer storing tokens in sessionStorage from URL parameters
 
-  // Fetch user documents with timeout protection
+  // Fetch user's plan from onboarding data
+  useEffect(() => {
+    const fetchUserPlan = async () => {
+      if (authLoading || !user?.id) return;
+
+      setLoadingPlan(true);
+      try {
+        const { data, error } = await supabase
+          .from('onboarding_data')
+          .select('payment_details')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (error && error.code !== 'PGRST116') {
+          console.error('Error fetching plan:', error);
+        } else if (data?.payment_details?.plan) {
+          setUserPlan(data.payment_details.plan);
+          console.log('User plan loaded:', data.payment_details.plan);
+        } else {
+          // Default to Silver if no plan found
+          setUserPlan('Silver');
+          console.log('No plan found, defaulting to Silver');
+        }
+      } catch (error) {
+        console.error('Exception fetching plan:', error);
+        setUserPlan('Silver'); // Default to Silver on error
+      } finally {
+        setLoadingPlan(false);
+      }
+    };
+
+    fetchUserPlan();
+  }, [user?.id, authLoading]);
+
+  // Re-fetch plan and trigger data refresh when navigating back to customer dashboard
+  useEffect(() => {
+    const handleRouteChangeStart = (url) => {
+      // Set loading state immediately when starting to navigate TO customer dashboard
+      if (url === '/dashboard/customer') {
+        console.log('Starting navigation to customer dashboard, locking services...');
+        setLoadingPlan(true);
+      }
+    };
+
+    const handleRouteChangeComplete = (url) => {
+      // Only re-fetch if we're navigating TO the customer dashboard
+      if (url === '/dashboard/customer' && user?.id && !authLoading) {
+        console.log('Navigating back to customer dashboard, refreshing data...');
+
+        // Trigger a refresh of all data
+        setRefreshTrigger(prev => prev + 1);
+
+        // Re-fetch plan
+        const fetchPlanOnRouteChange = async () => {
+          try {
+            const { data, error } = await supabase
+              .from('onboarding_data')
+              .select('payment_details')
+              .eq('user_id', user.id)
+              .maybeSingle();
+
+            if (error && error.code !== 'PGRST116') {
+              console.error('Error fetching plan on route change:', error);
+              // On error, default to Silver for security
+              setUserPlan('Silver');
+            } else if (data?.payment_details?.plan) {
+              setUserPlan(data.payment_details.plan);
+            } else {
+              setUserPlan('Silver');
+            }
+          } catch (error) {
+            console.error('Exception fetching plan on route change:', error);
+            setUserPlan('Silver');
+          } finally {
+            setLoadingPlan(false);
+          }
+        };
+
+        fetchPlanOnRouteChange();
+      } else if (url === '/dashboard/customer') {
+        // If we navigated but user/auth not ready, unlock loading after a short delay
+        setLoadingPlan(false);
+      }
+    };
+
+    router.events?.on('routeChangeStart', handleRouteChangeStart);
+    router.events?.on('routeChangeComplete', handleRouteChangeComplete);
+
+    return () => {
+      router.events?.off('routeChangeStart', handleRouteChangeStart);
+      router.events?.off('routeChangeComplete', handleRouteChangeComplete);
+    };
+  }, [user?.id, authLoading, router]);
+
+  // Fetch user documents
   useEffect(() => {
     const fetchDocuments = async () => {
       if (authLoading || !user?.id) return;
 
-      // Clear existing timeout
-      if (documentTimeoutRef.current) {
-        clearTimeout(documentTimeoutRef.current);
-      }
-
       setLoadingDocuments(true);
 
-      // 10-second safety timeout
-      documentTimeoutRef.current = setTimeout(() => {
-        setLoadingDocuments(false);
-        showToast('Loading documents took too long. Please refresh.', 'warning', 5000);
-      }, 10000);
-
       try {
-        const result = await Promise.race([
-          retryOperation(async () => await getUserDocuments(user.id), 2, 500),
-          createTimeoutPromise(8000, 'Fetch documents')
-        ]);
+        const result = await getUserDocuments(user.id);
 
         if (result.success) {
           setDocuments(result.documents);
         } else {
-          showToast('Failed to load documents: ' + result.error, 'error');
+          console.error('Failed to load documents:', result.error);
         }
       } catch (error) {
-        showToast('Error loading documents: ' + error.message, 'error');
+        console.error('Error loading documents:', error);
       } finally {
-        if (documentTimeoutRef.current) {
-          clearTimeout(documentTimeoutRef.current);
-        }
         setLoadingDocuments(false);
       }
     };
 
     fetchDocuments();
+  }, [user?.id, authLoading, refreshTrigger]);
 
-    // Cleanup on unmount
-    return () => {
-      if (documentTimeoutRef.current) {
-        clearTimeout(documentTimeoutRef.current);
-      }
-    };
-  }, [user?.id, authLoading, showToast]);
-
-  // Fetch CVs with timeout protection
+  // Fetch CVs
   useEffect(() => {
     const fetchCvs = async () => {
       if (authLoading || !user?.id) return;
 
-      // Clear existing timeout
-      if (cvTimeoutRef.current) {
-        clearTimeout(cvTimeoutRef.current);
-      }
-
       setLoadingCvs(true);
 
-      // 10-second safety timeout
-      cvTimeoutRef.current = setTimeout(() => {
-        setLoadingCvs(false);
-        showToast('Loading CVs took too long. Please refresh.', 'warning', 5000);
-      }, 10000);
-
       try {
-        const result = await Promise.race([
-          retryOperation(async () => await listUserFiles(user.id, 'cvs'), 2, 500),
-          createTimeoutPromise(8000, 'Fetch CVs')
-        ]);
+        const result = await listUserFiles(user.id, 'cvs');
 
         if (result.success) {
           setCvs(result.files || []);
         } else {
-          showToast('Failed to load CVs: ' + result.error, 'error');
+          console.error('Failed to load CVs:', result.error);
         }
       } catch (error) {
-        showToast('Error loading CVs: ' + error.message, 'error');
+        console.error('Error loading CVs:', error);
       } finally {
-        if (cvTimeoutRef.current) {
-          clearTimeout(cvTimeoutRef.current);
-        }
         setLoadingCvs(false);
       }
     };
 
     fetchCvs();
+  }, [user?.id, authLoading, refreshTrigger]);
 
-    // Cleanup on unmount
-    return () => {
-      if (cvTimeoutRef.current) {
-        clearTimeout(cvTimeoutRef.current);
-      }
-    };
-  }, [user?.id, authLoading, showToast]);
-
-  // Fetch Cover Letters with timeout protection
+  // Fetch Cover Letters
   useEffect(() => {
     const fetchCoverLetters = async () => {
       if (authLoading || !user?.id) return;
 
-      // Clear existing timeout
-      if (coverLetterTimeoutRef.current) {
-        clearTimeout(coverLetterTimeoutRef.current);
-      }
-
       setLoadingCoverLetters(true);
 
-      // 10-second safety timeout
-      coverLetterTimeoutRef.current = setTimeout(() => {
-        setLoadingCoverLetters(false);
-        showToast('Loading cover letters took too long. Please refresh.', 'warning', 5000);
-      }, 10000);
-
       try {
-        const result = await Promise.race([
-          retryOperation(async () => await listUserFiles(user.id, 'cover-letters'), 2, 500),
-          createTimeoutPromise(8000, 'Fetch cover letters')
-        ]);
+        const result = await listUserFiles(user.id, 'cover-letters');
 
         if (result.success) {
           setCoverLetters(result.files || []);
         } else {
-          showToast('Failed to load cover letters: ' + result.error, 'error');
+          console.error('Failed to load cover letters:', result.error);
         }
       } catch (error) {
-        showToast('Error loading cover letters: ' + error.message, 'error');
+        console.error('Error loading cover letters:', error);
       } finally {
-        if (coverLetterTimeoutRef.current) {
-          clearTimeout(coverLetterTimeoutRef.current);
-        }
         setLoadingCoverLetters(false);
       }
     };
 
     fetchCoverLetters();
-
-    // Cleanup on unmount
-    return () => {
-      if (coverLetterTimeoutRef.current) {
-        clearTimeout(coverLetterTimeoutRef.current);
-      }
-    };
-  }, [user?.id, authLoading, showToast]);
+  }, [user?.id, authLoading, refreshTrigger]);
 
   const handleFileUpload = async () => {
     if (!selectedFile) {
@@ -334,6 +346,18 @@ function CustomerDashboard() {
 
   if (!user) return null;
 
+  // Services that are locked for Silver plan users
+  const lockedServicesForSilver = ['visa', 'housing', 'flights', 'rentalcars', 'banking', 'wifi', 'electricity'];
+
+  // Helper function to check if a service is locked
+  const isServiceLocked = (serviceId) => {
+    // If plan is still loading or not set, assume Silver (most restrictive) to prevent unauthorized access
+    if (!userPlan || loadingPlan) {
+      return lockedServicesForSilver.includes(serviceId);
+    }
+    return userPlan?.toLowerCase() === 'silver' && lockedServicesForSilver.includes(serviceId);
+  };
+
   const services = [
     { id: 'jobs', name: 'Jobs', image: '/services/vecteezy_women-searching-for-jobs-using-a-computer_1901049.jpg', color: 'from-blue-500 to-blue-600', count: 12, type: 'internal' },
     { id: 'visa', name: 'Visa', image: '/services/vecteezy_man-stamping-approval-of-work-finance-banking-or-investment_13007688.jpg', color: 'from-purple-500 to-purple-600', count: 3, type: 'internal' },
@@ -403,21 +427,6 @@ function CustomerDashboard() {
 
             {/* User Menu */}
             <div className="flex items-center space-x-4">
-              <button
-                onClick={() => setShowSettings(!showSettings)}
-                className="p-2 rounded-lg transition-colors duration-200"
-                style={{ color: 'rgba(0, 50, 83, 0.8)' }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'rgba(0, 50, 83, 0.1)';
-                  e.currentTarget.style.color = 'rgba(0, 50, 83, 1)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.color = 'rgba(0, 50, 83, 0.8)';
-                }}
-              >
-                <Settings className="w-6 h-6" />
-              </button>
               <div className="flex items-center space-x-3">
                 <img
                   src={user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.email)}&background=003253&color=fff&bold=true`}
@@ -504,7 +513,8 @@ function CustomerDashboard() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {services.map((service) => {
-              // Determine if this is an internal or external link
+              // Determine if this service is locked
+              const locked = isServiceLocked(service.id);
               const isAffiliate = service.type === 'affiliate';
 
               // Common card content
@@ -514,20 +524,64 @@ function CustomerDashboard() {
                     <img
                       src={service.image}
                       alt={service.name}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                      className={`w-full h-full object-cover transition-transform duration-300 ${
+                        locked ? 'filter grayscale opacity-50' : 'group-hover:scale-110'
+                      }`}
                     />
+                    {locked && (
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                        <div className="text-center">
+                          <Lock className="w-12 h-12 text-white mx-auto mb-2" />
+                          <p className="text-white text-sm font-semibold">Upgrade Required</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div className="p-6">
-                    <h4 className="text-lg font-semibold text-gray-900 mb-2">{service.name}</h4>
+                    <h4 className={`text-lg font-semibold mb-2 ${locked ? 'text-gray-500' : 'text-gray-900'}`}>
+                      {service.name}
+                    </h4>
                     <div className="flex items-center justify-between">
                       <p className="text-sm text-gray-500">
-                        {service.count} {service.count === 1 ? 'item' : 'items'}
+                        {locked ? (
+                          <span className="text-xs bg-gray-200 px-2 py-1 rounded-full">Gold/Diamond Plan</span>
+                        ) : (
+                          `${service.count} ${service.count === 1 ? 'item' : 'items'}`
+                        )}
                       </p>
-                      <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-blue-600 transition-colors" />
+                      {locked ? (
+                        <Lock className="w-5 h-5 text-gray-400" />
+                      ) : (
+                        <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-blue-600 transition-colors" />
+                      )}
                     </div>
                   </div>
                 </>
               );
+
+              // Handler for locked services
+              const handleLockedClick = (e) => {
+                e.preventDefault();
+                showToast('This service is only available for Gold and Diamond plan users. Please upgrade your plan.', 'warning', 5000);
+              };
+
+              // Render locked service
+              if (locked) {
+                return (
+                  <div
+                    key={service.id}
+                    onClick={handleLockedClick}
+                    className="rounded-2xl overflow-hidden shadow-lg transition-all duration-300 cursor-not-allowed border backdrop-blur-md"
+                    style={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.7)',
+                      borderColor: 'rgba(255, 255, 255, 0.3)',
+                      opacity: 0.6
+                    }}
+                  >
+                    {cardContent}
+                  </div>
+                );
+              }
 
               // Render as link for affiliate services
               if (isAffiliate) {
@@ -1234,6 +1288,17 @@ function CustomerDashboard() {
           </div>
         </div>
 
+        {/* Cover Letter Templates Section */}
+        <div
+          className="rounded-2xl p-6 shadow-lg border backdrop-blur-md mb-8"
+          style={{
+            backgroundColor: 'rgba(255, 255, 255, 0.7)',
+            borderColor: 'rgba(255, 255, 255, 0.3)'
+          }}
+        >
+          <CoverLetterTemplates key={`cover-letters-${refreshTrigger}`} userId={user?.id} />
+        </div>
+
       </div>
 
       {/* Upload Modal */}
@@ -1360,123 +1425,6 @@ function CustomerDashboard() {
               >
                 <X className="w-4 h-4 text-gray-600" />
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Settings Modal */}
-      {showSettings && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div
-            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[100]"
-            onClick={() => setShowSettings(false)}
-          />
-          <div
-            className="relative w-full max-w-2xl rounded-2xl shadow-2xl border backdrop-blur-md max-h-[90vh] overflow-y-auto z-[101]"
-            style={{
-              backgroundColor: 'rgba(255, 255, 255, 0.95)',
-              borderColor: 'rgba(255, 255, 255, 0.3)'
-            }}
-          >
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-2xl font-bold" style={{ color: 'rgba(0, 50, 83, 1)' }}>
-                  Settings
-                </h3>
-                <button
-                  onClick={() => setShowSettings(false)}
-                  className="p-2 rounded-lg hover:bg-gray-100"
-                >
-                  <X className="w-6 h-6" style={{ color: 'rgba(0, 50, 83, 0.8)' }} />
-                </button>
-              </div>
-
-              <div className="space-y-6">
-                {/* Profile Settings */}
-                <div>
-                  <h4 className="text-lg font-semibold mb-4" style={{ color: 'rgba(0, 50, 83, 1)' }}>
-                    Profile Settings
-                  </h4>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Full Name
-                      </label>
-                      <input
-                        type="text"
-                        defaultValue={user.name}
-                        className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none"
-                        style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Email
-                      </label>
-                      <input
-                        type="email"
-                        defaultValue={user.email}
-                        className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none"
-                        style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Phone Number
-                      </label>
-                      <input
-                        type="tel"
-                        defaultValue={user.phone}
-                        placeholder="+1 234 567 8900"
-                        className="w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none"
-                        style={{ borderColor: 'rgba(0, 50, 83, 0.2)' }}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Notification Preferences */}
-                <div>
-                  <h4 className="text-lg font-semibold mb-4" style={{ color: 'rgba(0, 50, 83, 1)' }}>
-                    Notification Preferences
-                  </h4>
-                  <div className="space-y-3">
-                    {['Email Notifications', 'SMS Notifications', 'Application Updates', 'Marketing Emails'].map((pref) => (
-                      <label key={pref} className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 cursor-pointer">
-                        <span className="text-gray-700">{pref}</span>
-                        <input
-                          type="checkbox"
-                          defaultChecked
-                          className="w-5 h-5 rounded"
-                          style={{ accentColor: 'rgba(0, 50, 83, 1)' }}
-                        />
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Security */}
-                <div>
-                  <h4 className="text-lg font-semibold mb-4" style={{ color: 'rgba(0, 50, 83, 1)' }}>
-                    Security
-                  </h4>
-                  <button
-                    className="w-full px-4 py-3 rounded-xl font-semibold text-white transition-all duration-200"
-                    style={{ backgroundColor: 'rgba(187, 40, 44, 1)' }}
-                  >
-                    Change Password
-                  </button>
-                </div>
-
-                {/* Save Button */}
-                <button
-                  className="w-full px-6 py-4 rounded-xl font-semibold text-white transition-all duration-200 shadow-lg"
-                  style={{ backgroundColor: 'rgba(0, 50, 83, 1)' }}
-                >
-                  Save Changes
-                </button>
-              </div>
             </div>
           </div>
         </div>

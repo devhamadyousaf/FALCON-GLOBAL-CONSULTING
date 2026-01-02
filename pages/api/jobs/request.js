@@ -55,28 +55,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // Check for active campaigns (only 1 allowed at a time)
-    const { data: activeCampaigns, error: checkError } = await supabase
-      .from('job_campaigns')
-      .select('id, title, status')
-      .eq('user_email', email)
-      .in('status', ['pending', 'processing']);
-
-    if (checkError) {
-      console.error('Error checking active campaigns:', checkError);
-      return res.status(500).json({
-        error: 'Failed to check active campaigns',
-        details: checkError.message
-      });
-    }
-
-    if (activeCampaigns && activeCampaigns.length > 0) {
-      return res.status(400).json({
-        error: 'You already have an active campaign running. Please wait for it to complete.',
-        activeCampaign: activeCampaigns[0]
-      });
-    }
-
     // Prepare campaign data
     const selectedPlatform = platform || 'indeed';
     const campaignTitle = `${keywords} - ${location || cities?.join(', ') || 'Multiple locations'}`;

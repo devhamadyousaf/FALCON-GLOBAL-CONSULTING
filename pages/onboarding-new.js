@@ -253,14 +253,15 @@ export default function OnboardingNew() {
     ]);
   };
 
-  // Safeguard: If GCC user somehow ends up on visa check step, skip to payment
+  // Safeguard: If GCC or Rest of World user somehow ends up on visa check step, skip to payment
   // This runs whenever the step or relocation type changes
   useEffect(() => {
-    if (onboardingData.relocationType === 'gcc' && (currentMainStep === 2 || currentMainStep === 2.5)) {
-      console.log('⚠️ SAFEGUARD TRIGGERED: GCC user on visa check step - redirecting to payment');
+    if ((onboardingData.relocationType === 'gcc' || onboardingData.relocationType === 'other') &&
+        (currentMainStep === 2 || currentMainStep === 2.5)) {
+      console.log('⚠️ SAFEGUARD TRIGGERED: GCC/Rest of World user on visa check step - redirecting to payment');
       console.log('⚠️ Current step:', currentMainStep);
       console.log('⚠️ Relocation type:', onboardingData.relocationType);
-      console.log('⚠️ This should NEVER happen for GCC users');
+      console.log('⚠️ This should NEVER happen for GCC or Rest of World users');
       setCurrentMainStep(3);
       setCurrentStep(3);
     }
@@ -301,6 +302,8 @@ export default function OnboardingNew() {
     } catch (error) {
       console.error('❌ Error setting relocation type:', error);
       setToast({ message: 'Failed to save selection. Please try again.', type: 'error' });
+      // Still move forward to prevent getting stuck
+      setCurrentMainStep(1);
     } finally {
       setLoading(false);
     }
@@ -334,8 +337,8 @@ export default function OnboardingNew() {
     }
 
     const relocType = onboardingData.relocationType;
-    if (!relocType || (relocType !== 'gcc' && relocType !== 'europe')) {
-      setToast({ message: 'Please select your destination (GCC or Europe) first.', type: 'error' });
+    if (!relocType || (relocType !== 'gcc' && relocType !== 'europe' && relocType !== 'other')) {
+      setToast({ message: 'Please select your destination first.', type: 'error' });
       setCurrentMainStep(0);
       return;
     }
@@ -358,14 +361,14 @@ export default function OnboardingNew() {
       console.log('💾 Saving personal details...');
       const updatedData = await updatePersonalDetails(detailsToSave);
       await markStepCompleted(1, updatedData);
-      
-      const nextStep = relocType === 'gcc' ? 3 : 2;
+
+      const nextStep = (relocType === 'gcc' || relocType === 'other') ? 3 : 2;
       await setCurrentStep(nextStep, updatedData);
 
       setToast({ message: 'Personal details saved successfully!', type: 'success' });
 
       // Navigate to next step without refreshing
-      if (relocType === 'gcc') {
+      if (relocType === 'gcc' || relocType === 'other') {
         setCurrentMainStep(3);
       } else {
         setCurrentMainStep(2);
@@ -876,13 +879,14 @@ export default function OnboardingNew() {
 
   const getTotalSteps = () => {
     // ONLY return total if we have a valid relocation type selected
-    if (onboardingData.relocationType === 'gcc') return 5;
+    if (onboardingData.relocationType === 'gcc' || onboardingData.relocationType === 'other') return 5;
     if (onboardingData.relocationType === 'europe') return 6;
     return 6; // Default to Europe flow if not selected yet
   };
 
   const getCurrentStepNumber = () => {
     const isGCC = onboardingData.relocationType === 'gcc';
+    const isOther = onboardingData.relocationType === 'other';
     const isEurope = onboardingData.relocationType === 'europe';
 
     // Step 0: Destination Selection
@@ -891,11 +895,11 @@ export default function OnboardingNew() {
     // Step 1: Personal Details
     if (currentMainStep === 1) return 2;
 
-    // Step 2/2.5: Visa Check (ONLY for Europe - GCC should NEVER be here)
+    // Step 2/2.5: Visa Check (ONLY for Europe - GCC and Other should NEVER be here)
     if (currentMainStep === 2 || currentMainStep === 2.5) {
-      if (isGCC) {
-        // GCC users should NEVER be on visa check - something is wrong
-        console.error('🚨 GCC user on visa check step - this should not happen!');
+      if (isGCC || isOther) {
+        // GCC and Rest of World users should NEVER be on visa check - something is wrong
+        console.error('🚨 GCC/Other user on visa check step - this should not happen!');
         return 2; // Show step 2 to avoid confusion
       }
       return isEurope ? 3 : 2;
@@ -903,17 +907,17 @@ export default function OnboardingNew() {
 
     // Step 3: Payment
     if (currentMainStep === 3) {
-      return isGCC ? 3 : (isEurope ? 4 : 3);
+      return (isGCC || isOther) ? 3 : (isEurope ? 4 : 3);
     }
 
     // Step 4: Call Scheduling
     if (currentMainStep === 4) {
-      return isGCC ? 4 : (isEurope ? 5 : 4);
+      return (isGCC || isOther) ? 4 : (isEurope ? 5 : 4);
     }
 
     // Step 5: Document Upload
     if (currentMainStep === 5) {
-      return isGCC ? 5 : (isEurope ? 6 : 5);
+      return (isGCC || isOther) ? 5 : (isEurope ? 6 : 5);
     }
 
     return 1;
@@ -921,13 +925,14 @@ export default function OnboardingNew() {
 
   const getStepName = () => {
     const isGCC = onboardingData.relocationType === 'gcc';
+    const isOther = onboardingData.relocationType === 'other';
 
     if (currentMainStep === 0) return 'Destination';
     if (currentMainStep === 1) return 'Personal Details';
 
-    // For GCC users, step 2 should NEVER show "Visa Check"
+    // For GCC and Rest of World users, step 2 should NEVER show "Visa Check"
     if (currentMainStep === 2 || currentMainStep === 2.5) {
-      return isGCC ? 'Payment' : 'Visa Check';
+      return (isGCC || isOther) ? 'Payment' : 'Visa Check';
     }
 
     if (currentMainStep === 3) return 'Payment';
@@ -966,8 +971,8 @@ export default function OnboardingNew() {
       } else if (stepNumber === 6) {
         setCurrentMainStep(5); // Documents
       }
-    } else if (onboardingData.relocationType === 'gcc') {
-      // GCC flow: Destination, Details, Payment, Call, Documents (no visa check)
+    } else if (onboardingData.relocationType === 'gcc' || onboardingData.relocationType === 'other') {
+      // GCC & Rest of World flow: Destination, Details, Payment, Call, Documents (no visa check)
       if (stepNumber === 3) {
         setCurrentMainStep(3); // Payment
       } else if (stepNumber === 4) {
@@ -1159,12 +1164,15 @@ export default function OnboardingNew() {
                   <p className="text-base text-gray-600">Where do you see your future?</p>
                   {onboardingData.relocationType && (
                     <p className="text-sm text-gray-500 mt-2">
-                      Current selection: <span className="font-semibold capitalize">{onboardingData.relocationType === 'gcc' ? 'GCC Countries' : 'Europe'}</span>
+                      Current selection: <span className="font-semibold capitalize">
+                        {onboardingData.relocationType === 'gcc' ? 'GCC Countries' :
+                         onboardingData.relocationType === 'other' ? 'Rest of World' : 'Europe'}
+                      </span>
                     </p>
                   )}
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="grid md:grid-cols-3 gap-6">
                   {/* Europe Option */}
                   <button
                     onClick={() => handleRelocationTypeSelect('europe')}
@@ -1201,8 +1209,8 @@ export default function OnboardingNew() {
                       <h2 className="text-2xl font-bold mb-2 text-white">
                         Europe
                       </h2>
-                      <p className="text-sm text-white/90 mb-4">
-                        Check your visa eligibility for Germany (Work, Study, Family, or Business Visas)
+                      <p className="text-sm text-white/90 mb-4 line-clamp-2">
+                        Germany work, study, family & business visas
                       </p>
                       <div className="flex items-center text-sm font-semibold text-white">
                         <span>{onboardingData.relocationType === 'europe' ? 'Selected' : 'Select Europe'}</span>
@@ -1247,11 +1255,57 @@ export default function OnboardingNew() {
                       <h2 className="text-2xl font-bold mb-2 text-white">
                         GCC Countries
                       </h2>
-                      <p className="text-sm text-white/90 mb-4">
-                        UAE, Saudi Arabia, Qatar, Kuwait, Bahrain, Oman
+                      <p className="text-sm text-white/90 mb-4 line-clamp-2">
+                        UAE, Saudi Arabia, Qatar, Kuwait, Bahrain & Oman
                       </p>
                       <div className="flex items-center text-sm font-semibold text-white">
                         <span>{onboardingData.relocationType === 'gcc' ? 'Selected' : 'Select GCC'}</span>
+                        <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-2 transition-transform" />
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Rest of World Option */}
+                  <button
+                    onClick={() => handleRelocationTypeSelect('other')}
+                    disabled={loading}
+                    className="group rounded-2xl overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 text-left relative h-64 disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{
+                      border: onboardingData.relocationType === 'other'
+                        ? '3px solid rgba(34, 197, 94, 1)'
+                        : '2px solid rgba(187, 40, 44, 0.3)',
+                      boxShadow: onboardingData.relocationType === 'other'
+                        ? '0 0 20px rgba(34, 197, 94, 0.3)'
+                        : undefined
+                    }}
+                  >
+                    {/* Background Image */}
+                    <div
+                      className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
+                      style={{
+                        backgroundImage: 'url(https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop)',
+                        filter: 'brightness(0.7)'
+                      }}
+                    />
+
+                    {/* Dark overlay for better text visibility */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent" />
+
+                    {/* Content */}
+                    <div className="relative z-10 h-full flex flex-col justify-end p-6">
+                      {onboardingData.relocationType === 'other' && (
+                        <div className="absolute top-4 right-4 bg-green-500 rounded-full p-2">
+                          <Check className="w-5 h-5 text-white" />
+                        </div>
+                      )}
+                      <h2 className="text-2xl font-bold mb-2 text-white">
+                        Rest of World
+                      </h2>
+                      <p className="text-sm text-white/90 mb-4 line-clamp-2">
+                        Asia, Americas, Africa & Oceania opportunities
+                      </p>
+                      <div className="flex items-center text-sm font-semibold text-white">
+                        <span>{onboardingData.relocationType === 'other' ? 'Selected' : 'Select Rest of World'}</span>
                         <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-2 transition-transform" />
                       </div>
                     </div>

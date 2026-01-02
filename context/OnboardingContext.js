@@ -459,8 +459,8 @@ export function OnboardingProvider({ children }) {
   const checkOnboardingComplete = (data) => {
     const { relocationType, paymentCompleted, onboardingCallScheduled, documentsUploaded, completedSteps } = data;
 
-    if (relocationType === 'gcc') {
-      // GCC: Need personal details, payment, call, and documents (NO visa check)
+    if (relocationType === 'gcc' || relocationType === 'other') {
+      // GCC & Rest of World: Need personal details, payment, call, and documents (NO visa check)
       const hasPersonalDetails = (completedSteps || []).some(s => {
         const step = typeof s === 'string' ? parseInt(s, 10) : s;
         return step === 1;

@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { createTimeoutPromise, retryOperation } from '../../utils/asyncHelpers';
+import AdminCoverLetterTemplates from '../../components/AdminCoverLetterTemplates';
 import {
   Users,
   FileText,
@@ -10,7 +11,6 @@ import {
   LogOut,
   Menu,
   X,
-  Bell,
   Search,
   ChevronRight,
   UserCheck,
@@ -886,7 +886,8 @@ export default function AdminDashboard() {
   const navigationTabs = [
     { id: 'overview', name: 'Overview', icon: BarChart3 },
     { id: 'users', name: 'User Management', icon: Users },
-    { id: 'applications', name: 'Applications', icon: FileText }
+    { id: 'applications', name: 'Applications', icon: FileText },
+    { id: 'templates', name: 'Cover Letter Templates', icon: Mail }
   ];
 
   // Display users list based on active tab
@@ -1007,26 +1008,6 @@ export default function AdminDashboard() {
                 title="Refresh data"
               >
                 <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-              </button>
-              <button
-                onClick={() => setShowNotifications(!showNotifications)}
-                className="p-2 rounded-lg transition-colors duration-200 relative"
-                style={{ color: 'rgba(0, 50, 83, 0.8)' }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'rgba(0, 50, 83, 0.1)';
-                  e.currentTarget.style.color = 'rgba(0, 50, 83, 1)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.color = 'rgba(0, 50, 83, 0.8)';
-                }}
-              >
-                <Bell className="w-6 h-6" />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                    {unreadCount}
-                  </span>
-                )}
               </button>
               <div className="flex items-center space-x-3">
                 <img
@@ -1598,6 +1579,19 @@ export default function AdminDashboard() {
               <h4 className="text-lg font-semibold text-gray-700 mb-2">Content Management Coming Soon</h4>
               <p className="text-gray-500">This feature will allow you to manage website content dynamically.</p>
             </div>
+          </div>
+        )}
+
+        {/* Templates Tab */}
+        {activeTab === 'templates' && (
+          <div
+            className="rounded-2xl p-6 shadow-lg border backdrop-blur-md"
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.7)',
+              borderColor: 'rgba(255, 255, 255, 0.3)'
+            }}
+          >
+            <AdminCoverLetterTemplates />
           </div>
         )}
       </div>
